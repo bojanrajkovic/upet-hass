@@ -36,6 +36,9 @@
       "waste_bin_level": {
         "name": "Waste bin level"
       },
+      "last_visit": {
+        "name": "Last visit"
+      },
       "waste_bin_last_reset": {
         "name": "Waste bin last reset"
       },

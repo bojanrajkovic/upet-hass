@@ -17,6 +17,7 @@ import urllib.request
 
 try:
     from .mqtt import mqtt_endpoint, publish_service
+    from .visits import VISIT_HISTORY_SIZE
 except ImportError:
     _MQTT_PATH = Path(__file__).with_name("mqtt.py")
     _mqtt_spec = importlib.util.spec_from_file_location("ubpet_mqtt", _MQTT_PATH)
@@ -27,6 +28,13 @@ except ImportError:
     _mqtt_spec.loader.exec_module(_mqtt)
     publish_service = _mqtt.publish_service
     mqtt_endpoint = _mqtt.mqtt_endpoint
+    _visits_spec = importlib.util.spec_from_file_location("ubpet_visits", Path(__file__).with_name("visits.py"))
+    if _visits_spec is None or _visits_spec.loader is None:
+        raise
+    _visits = importlib.util.module_from_spec(_visits_spec)
+    sys.modules[_visits_spec.name] = _visits
+    _visits_spec.loader.exec_module(_visits)
+    VISIT_HISTORY_SIZE = _visits.VISIT_HISTORY_SIZE
 
 USER_AGENT = "CatLitterBoxOverseasEu/2.1.12 (com.ubtrobot.airpet.overseaseu; build:699; iOS 26.5.0) Alamofire/5.5.0"
 NONCE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -361,7 +369,7 @@ class UbpetClient:
                 "box_use_times": _safe_dict_call(self.get_box_use_times, serial),
                 "deodorant": _safe_dict_call(self.get_deodorant_status, serial),
                 "online": _safe_dict_call(self.get_device_online, serial),
-                "cat_records": _safe_list_call(self.get_box_records, serial, 0, 1),
+                "cat_records": _safe_list_call(self.get_box_records, serial, 0, VISIT_HISTORY_SIZE),
                 "device_records": _safe_list_call(self.get_box_records, serial, 1, 1),
             }
         return {

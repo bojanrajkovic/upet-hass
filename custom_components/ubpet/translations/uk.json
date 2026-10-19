@@ -45,9 +45,6 @@
       "box_full_max": {
         "name": "Максимум контейнера"
       },
-      "box_full_alert": {
-        "name": "Поріг сповіщення контейнера"
-      },
       "deodorant_remaining_days": {
         "name": "Днів до заміни дезодоранта"
       },
@@ -104,9 +101,6 @@
       "camera_switch": {
         "name": "Камеру увімкнено"
       },
-      "control_board_switch": {
-        "name": "Блокування від дітей"
-      },
       "cat_nearby": {
         "name": "Кіт поруч"
       },
@@ -135,6 +129,9 @@
     "number": {
       "auto_clean_delay": {
         "name": "Затримка автоочищення"
+      },
+      "box_full_alert": {
+        "name": "Контейнер повний після"
       }
     },
     "switch": {
@@ -152,6 +149,18 @@
       },
       "auto_clean": {
         "name": "Автоочищення"
+      },
+      "child_lock": {
+        "name": "Блокування від дітей"
+      },
+      "foreign_object_detection": {
+        "name": "Виявлення сторонніх предметів"
+      },
+      "shake_mode": {
+        "name": "Режим струшування"
+      },
+      "box_full_alert": {
+        "name": "Сповіщення про повний контейнер"
       }
     },
     "time": {
@@ -182,6 +191,9 @@
       },
       "mqtt_request_state": {
         "name": "Запитати стан"
+      },
+      "reset_deodorant": {
+        "name": "Скинути дезодорант"
       },
       "reset_waste_bin": {
         "name": "Скинути контейнер"

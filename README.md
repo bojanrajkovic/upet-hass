@@ -126,7 +126,6 @@ Device sensors:
 - Waste-bin level.
 - Waste-bin last reset.
 - Box full max.
-- Box full alert.
 - Deodorant remaining days.
 - Auto clean delay.
 - Firmware version.
@@ -149,10 +148,12 @@ Device binary sensors:
 - Deodorant expired.
 - Sensor enabled.
 - Camera enabled.
-- Child lock.
 
 Device controls:
 
+- Child lock, waste bin full alert, and shake mode (on boxes that support it) switches.
+- Foreign object detection switch, on boxes that report the capability. The MW-SC02 doesn't.
+- Waste bin full threshold number, up to the bin's capacity the box reports.
 - Auto clean delay number.
 - Auto clean switch.
 - Deodorant alert switch.
@@ -265,6 +266,7 @@ account they're linked to:
 | --- | --- |
 | Work state (RISP `0x400`) | Work mode, work state, box status, and Cat inside update at once. |
 | New record (RISP `0x3ff`) | Visit records are fetched 3 seconds later. |
+| Settings request (RISP `0x9e7`, 2535) | The box picked up a settings change, from the app, the box, or Home Assistant. Settings are fetched 3 seconds later. |
 | Online status | The box's Online sensor updates at once. |
 
 ```mermaid

@@ -183,6 +183,11 @@ Box records, such as a finished cleaning cycle (`event_type` 31), fire
 `ubpet_box_event` the same way, with the same fields. Their cat fields are
 empty.
 
+Any MQTT message the integration doesn't recognize fires
+`ubpet_unknown_message` with its raw bytes in `payload_hex`, plus the sender,
+content type and RISP command when known. Command receipts are skipped. This
+captures pushes nobody has decoded yet, such as health alerts.
+
 The event reflects the cat known when the visit first appears. Assigning a
 visit to a cat later in the app doesn't fire a new event.
 

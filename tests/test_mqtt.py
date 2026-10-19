@@ -102,7 +102,8 @@ class MqttCodecUnitTests(unittest.TestCase):
             ({"from_uid": "2001", "risp_cmd": mqtt.RISP_CMD_RECORD_PUSH}, mqtt.NewRecord("SN1")),
             ({"from_uid": "9999", "risp_cmd": mqtt.RISP_CMD_RECORD_PUSH}, mqtt.Ignored("unknown sender")),
             ({"from_uid": "2001", "risp_cmd": mqtt.RISP_CMD_OPERATION}, mqtt.Ignored("unhandled message")),
-            ({"from_uid": "2001", "content_type": "receipt"}, mqtt.Ignored("unhandled message")),
+            ({"from_uid": "2001", "content_type": "receipt"}, mqtt.Ignored("receipt")),
+            ({"from_uid": "1", "content_type": "receipt"}, mqtt.Ignored("receipt")),
         ]
         for decoded, expected in cases:
             with self.subTest(decoded=decoded):

@@ -18,9 +18,94 @@ from .coordinator import UbpetDataUpdateCoordinator
 @dataclass(frozen=True, kw_only=True)
 class UbpetBinarySensorDescription(BinarySensorEntityDescription):
     value_fn: Callable[[dict[str, Any]], Any]
+    attrs_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+
+
+# What the app tells the owner for each motor_state when the drum is stuck.
+DRUM_STUCK_POSITIONS = {
+    1: "There may be clumps at the start position",
+    2: "There may be clumps in the litter bin",
+    3: "There may be clumps in the rotation section of the litter bin",
+    4: "There may be clumps causing blockage in the waste bin",
+}
+
+
+def _state(item: dict[str, Any], field: str) -> int | None:
+    """A field of the box's latest state push; absent means 0, None until the first push."""
+    state = item.get("mqtt_state")
+    return state.get(field, 0) if isinstance(state, dict) else None
+
+
+def _state_is(field: str, test: Callable[[int], bool]) -> Callable[[dict[str, Any]], bool | None]:
+    def value(item: dict[str, Any]) -> bool | None:
+        current = _state(item, field)
+        return None if current is None else test(current)
+
+    return value
 
 
 BINARY_SENSORS: tuple[UbpetBinarySensorDescription, ...] = (
+    UbpetBinarySensorDescription(
+        key="cat_nearby",
+        name="Cat nearby",
+        icon="mdi:cat",
+        translation_key="cat_nearby",
+        device_class=BinarySensorDeviceClass.OCCUPANCY,
+        value_fn=_state_is("foreign_state", lambda value: value == 1),
+    ),
+    UbpetBinarySensorDescription(
+        key="back_cover_open",
+        name="Back cover open",
+        translation_key="back_cover_open",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=_state_is("lid_state", lambda value: value == 1),
+    ),
+    UbpetBinarySensorDescription(
+        key="drum_not_in_place",
+        name="Drum not in place",
+        translation_key="drum_not_in_place",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=_state_is("box_state", lambda value: value == 1),
+    ),
+    UbpetBinarySensorDescription(
+        key="drum_stuck",
+        name="Drum stuck",
+        translation_key="drum_stuck",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=_state_is("motor_state", lambda value: value in DRUM_STUCK_POSITIONS),
+        attrs_fn=lambda item: {"likely_cause": DRUM_STUCK_POSITIONS.get(_state(item, "motor_state"))},
+    ),
+    UbpetBinarySensorDescription(
+        key="scale_fault",
+        name="Scale fault",
+        translation_key="scale_fault",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_state_is("weigh_sensor", lambda value: value == 1),
+    ),
+    UbpetBinarySensorDescription(
+        key="camera_fault",
+        name="Camera fault",
+        translation_key="camera_fault",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_state_is("camera_state", lambda value: value == 1),
+    ),
+    UbpetBinarySensorDescription(
+        key="light",
+        name="Light",
+        translation_key="light",
+        device_class=BinarySensorDeviceClass.LIGHT,
+        value_fn=_state_is("led_state", lambda value: value > 0),
+    ),
+    UbpetBinarySensorDescription(
+        key="firmware_updating",
+        name="Firmware updating",
+        translation_key="firmware_updating",
+        device_class=BinarySensorDeviceClass.UPDATE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_state_is("update_state", lambda value: value == 1),
+    ),
     UbpetBinarySensorDescription(
         key="cat_inside",
         name="Cat inside",
@@ -109,6 +194,13 @@ class UbpetDeviceBinarySensor(CoordinatorEntity[UbpetDataUpdateCoordinator], Bin
             return None
         value = self.entity_description.value_fn(item)
         return None if value is None else bool(value)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        item = self.coordinator.data.get("devices", {}).get(self._serial)
+        if not item or self.entity_description.attrs_fn is None:
+            return None
+        return self.entity_description.attrs_fn(item)
 
 
 def _cat_inside(item: dict[str, Any]) -> bool | None:

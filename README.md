@@ -140,6 +140,11 @@ Device sensors:
 Device binary sensors:
 
 - Cat inside.
+- Cat nearby.
+- Problems: back cover open, drum not in place, drum stuck (with the likely cause, as
+  the app words it), scale fault, camera fault.
+- Light.
+- Firmware updating.
 - Online.
 - Deodorant expired.
 - Sensor enabled.

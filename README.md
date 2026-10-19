@@ -179,6 +179,10 @@ Cat sensors:
 
 Cat picture URLs are exposed as cat entity attributes when returned by the vendor API.
 
+Re-pairing a box or recreating a cat profile gives it a new vendor id, so the old device stays
+behind with dead entities. Delete it from the device page; the integration allows deleting any
+box or cat the account no longer reports.
+
 ## Visit Log
 
 When a box pushes a new record, or a cat steps out, the integration fetches

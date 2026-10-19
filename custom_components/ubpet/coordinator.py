@@ -11,7 +11,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import UbpetApiError, UbpetClient
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, EVENT_VISIT
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, EVENT_BOX, EVENT_VISIT
 from .mqtt import RISP_CMD_ALL_STATE_RESPONSE, RISP_CMD_STATE_PUSH
 from .visits import new_visits, visit_event_data
 
@@ -19,6 +19,9 @@ if TYPE_CHECKING:
     from .push import UbpetPush
 
 _LOGGER = logging.getLogger(__name__)
+
+# (records key in the dashboard, event to fire, cursor key suffix). Cat visits keep the bare serial for older stores.
+RECORD_STREAMS = (("cat_records", EVENT_VISIT, ""), ("device_records", EVENT_BOX, ":box"))
 
 
 
@@ -79,15 +82,17 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._visit_cursor = await self._visit_store.async_load() or {}
         changed = False
         for serial, item in devices.items():
-            batch = new_visits(item.get("cat_records") or [], self._visit_cursor.get(serial))
             box_name = item.get("device", {}).get("deviceName")
-            for record in batch.visits:
-                self.hass.bus.async_fire(EVENT_VISIT, visit_event_data(serial, box_name, record))
-            if batch.last_record_id is not None and batch.last_record_id != self._visit_cursor.get(serial):
-                self._visit_cursor[serial] = batch.last_record_id
-                changed = True
-            if batch.visits:
-                _LOGGER.info("UPET reported %s new visit(s) for %s", len(batch.visits), serial)
+            for records_key, event, suffix in RECORD_STREAMS:
+                cursor_key = serial + suffix
+                batch = new_visits(item.get(records_key) or [], self._visit_cursor.get(cursor_key))
+                for record in batch.visits:
+                    self.hass.bus.async_fire(event, visit_event_data(serial, box_name, record))
+                if batch.last_record_id is not None and batch.last_record_id != self._visit_cursor.get(cursor_key):
+                    self._visit_cursor[cursor_key] = batch.last_record_id
+                    changed = True
+                if batch.visits:
+                    _LOGGER.info("UPET reported %s new %s record(s) for %s", len(batch.visits), records_key, serial)
         if changed:
             await self._visit_store.async_save(self._visit_cursor)
 

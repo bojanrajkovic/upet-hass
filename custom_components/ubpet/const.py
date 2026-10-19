@@ -6,6 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN = "ubpet"
 EVENT_VISIT = f"{DOMAIN}_visit"
+EVENT_BOX = f"{DOMAIN}_box_event"
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=3)
 
 try:

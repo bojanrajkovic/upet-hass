@@ -24,6 +24,9 @@ RISP_CMD_ALL_STATE_RESPONSE = 0x3FD
 # Unsolicited pushes from the box: a new visit or device record, and a work-state change.
 RISP_CMD_RECORD_PUSH = 0x3FF
 RISP_CMD_STATE_PUSH = 0x400
+# The box asking the cloud for its settings, which it does after any settings change
+# (d2c2535_intelligent_dev_config_info_get_rq; the app refreshes its settings on it).
+RISP_CMD_CONFIG_REQUEST = 0x9E7
 RISP_ATTR_REQUEST = 1
 RISP_HEADER_FIELD_NAMES = {
     1: "dev",
@@ -440,6 +443,13 @@ class NewRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class ConfigChanged:
+    """The box picked up a settings change, from the app, the box itself, or the integration."""
+
+    serial: str
+
+
+@dataclass(frozen=True, slots=True)
 class OnlineChange:
     serial: str
     online: bool
@@ -450,7 +460,7 @@ class Ignored:
     reason: str
 
 
-PushMessage = Kicked | StatePush | NewRecord | OnlineChange | Ignored
+PushMessage = Kicked | StatePush | NewRecord | ConfigChanged | OnlineChange | Ignored
 
 
 def classify_push(decoded: dict[str, Any], uid_to_serial: dict[str, str]) -> PushMessage:
@@ -478,6 +488,8 @@ def classify_push(decoded: dict[str, Any], uid_to_serial: dict[str, str]) -> Pus
         return StatePush(serial, decoded)
     if cmd == RISP_CMD_RECORD_PUSH:
         return NewRecord(serial)
+    if cmd == RISP_CMD_CONFIG_REQUEST:
+        return ConfigChanged(serial)
     return Ignored("unhandled message")
 
 

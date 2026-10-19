@@ -156,6 +156,50 @@ Cat sensors:
 
 Cat picture URLs are exposed as cat entity attributes when returned by the vendor API.
 
+## Visit Log
+
+Each poll fetches the last 20 cat records per box. Every record newer than the
+last one seen fires a `ubpet_visit` event and shows up in the Logbook as
+"Hilda used Left Litter Box (3.3 kg, 59 s)". The `Last visit` sensor on each box
+holds the newest visit, with the same fields as attributes.
+
+Event data:
+
+| Field | Meaning |
+| --- | --- |
+| `serial_number`, `box` | Which box |
+| `record_id` | Vendor record id, unique and increasing |
+| `cat_id`, `cat` | Identified cat, or `null` when the box couldn't tell |
+| `weight_kg`, `duration_s` | Weight measured and time spent |
+| `event_type` | Vendor code: `3` identified cat, `21` unidentified cat |
+| `time` | Visit time, ISO 8601 UTC |
+
+The last reported record id is stored per box, so a restart neither drops nor
+replays visits. Adding the integration doesn't replay past visits. More than 20
+visits on one box between two polls (3 minutes, or a long outage) loses the
+oldest ones.
+
+The recorder purges events after `purge_keep_days` (10 by default). To keep a
+permanent CSV, point an automation at a [File](https://www.home-assistant.io/integrations/file/)
+notify entity (`notify.litter_log` here):
+
+```yaml
+automation:
+  - alias: Log litter box visits
+    triggers:
+      - trigger: event
+        event_type: ubpet_visit
+    actions:
+      - action: notify.send_message
+        target:
+          entity_id: notify.litter_log
+        data:
+          message: >-
+            {{ trigger.event.data.time }},{{ trigger.event.data.box }},
+            {{ trigger.event.data.cat or 'unknown' }},{{ trigger.event.data.weight_kg }},
+            {{ trigger.event.data.duration_s }}
+```
+
 ## MQTT Behavior
 
 Work commands are sent through the vendor IM/MQTT path, not REST.

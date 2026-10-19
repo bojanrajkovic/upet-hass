@@ -24,6 +24,7 @@ from .const import (
     DEFAULT_PRODUCT,
     DOMAIN,
     SUPPORTED_COUNTRIES,
+    app_credentials_for_country,
     base_url_for_country,
 )
 
@@ -110,11 +111,12 @@ class UbpetConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 country = _clean_country(user_input.get(CONF_COUNTRY))
+                app_id, app_key = app_credentials_for_country(country)
                 connection_data = {
                     **user_input,
                     CONF_COUNTRY: country,
-                    CONF_APP_KEY: DEFAULT_APP_KEY or user_input.get(CONF_APP_KEY),
-                    CONF_APP_ID: DEFAULT_APP_ID or user_input.get(CONF_APP_ID),
+                    CONF_APP_KEY: app_key or user_input.get(CONF_APP_KEY),
+                    CONF_APP_ID: app_id or user_input.get(CONF_APP_ID),
                     CONF_AREA_CODE: country,
                     CONF_BASE_URL: base_url_for_country(country),
                     CONF_PRODUCT: DEFAULT_PRODUCT or user_input.get(CONF_PRODUCT),

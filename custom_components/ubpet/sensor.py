@@ -15,12 +15,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import UbpetDataUpdateCoordinator
+from .registry import waste_bin_reminder_config
 from .visits import today_totals, visit_event_data
 
 
 @dataclass(frozen=True, kw_only=True)
 class UbpetSensorDescription(SensorEntityDescription):
     value_fn: Callable[[dict[str, Any]], Any]
+    # Whether this box has the feature; None means every box does.
+    supported_fn: Callable[[dict[str, Any]], bool] | None = None
 
 
 DEVICE_SENSORS: tuple[UbpetSensorDescription, ...] = (
@@ -38,6 +41,7 @@ DEVICE_SENSORS: tuple[UbpetSensorDescription, ...] = (
         translation_key="empty_waste_bin_reminder_days",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda item: _empty_waste_bin_reminder_days(item["config"]),
+        supported_fn=lambda item: waste_bin_reminder_config(item.get("config", {})) is not None,
     ),
     UbpetSensorDescription(
         key="box_use_times",
@@ -196,8 +200,12 @@ CAT_SENSORS: tuple[UbpetSensorDescription, ...] = (
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: UbpetDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SensorEntity] = []
-    for serial in coordinator.data.get("devices", {}):
-        entities.extend(UbpetDeviceSensor(coordinator, entry.entry_id, serial, description) for description in DEVICE_SENSORS)
+    for serial, item in coordinator.data.get("devices", {}).items():
+        entities.extend(
+            UbpetDeviceSensor(coordinator, entry.entry_id, serial, description)
+            for description in DEVICE_SENSORS
+            if description.supported_fn is None or description.supported_fn(item)
+        )
     for cat in coordinator.data.get("cats", []):
         cat_id = cat.get("catInfoId")
         if cat_id is None:
@@ -386,7 +394,7 @@ def _box_status_from_mqtt(item: dict[str, Any]) -> str | None:
 
 
 def _empty_waste_bin_reminder_days(config: dict[str, Any]) -> str | None:
-    reminder = _empty_waste_bin_reminder_config(config)
+    reminder = waste_bin_reminder_config(config)
     if reminder is None:
         return None
     try:
@@ -409,13 +417,6 @@ def _empty_waste_bin_reminder_days(config: dict[str, Any]) -> str | None:
     if len(days) == 7:
         return "Every day"
     return ", ".join(days) if days else "Off"
-
-
-def _empty_waste_bin_reminder_config(config: dict[str, Any]) -> dict[str, Any] | None:
-    for item in config.get("notifyConfigList", []):
-        if isinstance(item, dict) and item.get("type") == 4 and item.get("notifyConfigId") is not None:
-            return item
-    return None
 
 
 def _mqtt_state_value(item: dict[str, Any], key: str) -> Any:

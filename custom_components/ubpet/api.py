@@ -85,6 +85,8 @@ class UbpetClient:
         self.signer = UbtV2Signer(app_key)
         self.auth: UbpetAuth | None = None
         self._auth_lock = threading.Lock()
+        # A box's capabilities don't change, so each is fetched once.
+        self._capabilities: dict[str, dict[str, Any]] = {}
 
     def ensure_login(self) -> UbpetAuth:
         if auth := self._usable_auth():
@@ -216,6 +218,13 @@ class UbpetClient:
         data = self._request("GET", "/catbox-server/web/cat/info", auth=True)
         return _require_list(data)
 
+    def get_capabilities(self, serial_number: str) -> dict[str, Any]:
+        """Optional features the box has, such as camera-based cat recognition (cat_face_upload)."""
+        if serial_number not in self._capabilities:
+            path = f"/catbox-server/box/config/device/capabilities?sn={_quote(serial_number)}"
+            self._capabilities[serial_number] = _require_dict(self._request("GET", path, auth=True))
+        return self._capabilities[serial_number]
+
     def get_cat_statistic(self, cat_info_id: int, period_type: int) -> list[dict[str, Any]]:
         """Per-period visit statistics, as the app shows them.
 
@@ -345,6 +354,7 @@ class UbpetClient:
                 "box_use_times": _safe_dict_call(self.get_box_use_times, serial),
                 "deodorant": _safe_dict_call(self.get_deodorant_status, serial),
                 "online": _safe_dict_call(self.get_device_online, serial),
+                "capabilities": _optional_dict_call(self.get_capabilities, serial),
                 # None, not [], on failure: an empty list means "no records yet" to the visit cursor.
                 "cat_records": _optional_list_call(self.get_box_records, serial, 0, VISIT_HISTORY_SIZE),
                 "device_records": _optional_list_call(self.get_box_records, serial, 1, VISIT_HISTORY_SIZE),
@@ -495,6 +505,14 @@ def _safe_dict_call(func, *args) -> dict[str, Any]:
     except (OSError, RuntimeError, UbpetApiError) as err:
         _LOGGER.debug("UPET optional endpoint failed: %s", err)
         return {}
+
+
+def _optional_dict_call(func, *args) -> dict[str, Any] | None:
+    try:
+        return func(*args)
+    except (OSError, RuntimeError, UbpetApiError) as err:
+        _LOGGER.debug("UPET optional endpoint failed: %s", err)
+        return None
 
 
 def _optional_list_call(func, *args) -> list[dict[str, Any]] | None:

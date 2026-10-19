@@ -42,7 +42,7 @@ from .mqtt import (
     mqtt_host_from_base_url,
     resolve_service_payload,
 )
-from .push_logic import presence_change, reconnect_delay
+from .push_logic import Presence, next_presence, reconnect_delay
 
 if TYPE_CHECKING:
     from .coordinator import UbpetDataUpdateCoordinator
@@ -69,6 +69,7 @@ class UbpetPush:
         self._cancel_reconnect: Callable[[], None] | None = None
         self._cancel_fetch: Callable[[], None] | None = None
         self._stopped = False
+        self._presence: dict[str, Presence] = {}
         # Another login took the session; stay off the account until the reconnect.
         self._yielding = False
 
@@ -210,13 +211,15 @@ class UbpetPush:
                 self._yielding = True
                 client.disconnect()
             case StatePush(serial=serial, state=state):
-                previous = self._coordinator.mqtt_state(serial)
-                self._coordinator.store_mqtt_result(serial, {"received_messages": [{"decoded": state, "phase": "push"}]})
-                inside = presence_change(previous, state)
-                if inside is not None:
-                    self._fire_presence(serial, inside, state)
-                if inside is False:
-                    self._schedule_refresh()
+                _LOGGER.debug("UPET MQTT state from %s: cmd=%s body=%s", serial, state.get("risp_cmd"), state.get("risp_body_hex"))
+                before = self._presence.get(serial)
+                after = self._presence[serial] = next_presence(before, state)
+                decoded = {**state, "cat_inside": after.inside}
+                self._coordinator.store_mqtt_result(serial, {"received_messages": [{"decoded": decoded, "phase": "push"}]})
+                if before is not None and before.inside != after.inside:
+                    self._fire_presence(serial, after.inside, state)
+                    if not after.inside:
+                        self._schedule_refresh()
             case NewRecord() | ConfigChanged():
                 self._schedule_refresh()
             case OnlineChange(serial=serial, online=online):

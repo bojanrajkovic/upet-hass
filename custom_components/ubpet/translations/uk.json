@@ -36,6 +36,9 @@
       "waste_bin_level": {
         "name": "Заповнення контейнера"
       },
+      "last_visit": {
+        "name": "Останній візит"
+      },
       "waste_bin_last_reset": {
         "name": "Останнє скидання контейнера"
       },

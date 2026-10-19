@@ -1,12 +1,16 @@
 {
   "domain": "ubpet",
-  "name": "UPET / Airrobo Cat Litter Box",
-  "codeowners": ["@CrazzyBerg"],
+  "name": "UPET / Airrobo / Meowant Cat Litter Box",
+  "codeowners": [
+    "@bojanrajkovic"
+  ],
   "config_flow": true,
-  "documentation": "https://github.com/CrazzyBerg/upet-hass",
-  "issue_tracker": "https://github.com/CrazzyBerg/upet-hass/issues",
+  "documentation": "https://github.com/bojanrajkovic/upet-hass",
+  "issue_tracker": "https://github.com/bojanrajkovic/upet-hass/issues",
   "iot_class": "cloud_push",
-  "requirements": ["paho-mqtt>=2.0"],
-  "version": "1.0.3",
+  "requirements": [
+    "paho-mqtt>=2.0"
+  ],
+  "version": "1.1.0",
   "diagnostics": true
 }

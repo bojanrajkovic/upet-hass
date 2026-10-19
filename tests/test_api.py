@@ -406,7 +406,7 @@ class ApiUnitTests(unittest.TestCase):
         self.assertEqual(recorder.requests[1].get_method(), "PUT")
         self.assertEqual(
             recorder.payloads()[1],
-            {"serialNumber": "SN123", "functionType": 6, "controlSwitch": 1, "optionInt": 0},
+            {"serialNumber": "SN123", "functionType": 6, "controlSwitch": 1, "optionInt": 1},
         )
 
     def test_set_box_full_alert_sends_threshold(self):

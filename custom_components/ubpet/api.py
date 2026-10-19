@@ -264,7 +264,8 @@ class UbpetClient:
         function_type 0 is the child lock, 1 foreign object detection, 6 shake mode and
         7 the waste-bin-full alert. Auto clean (2) carries the delay, so it has its own call.
         """
-        payload = {"serialNumber": serial_number, "functionType": function_type, "controlSwitch": 1 if enabled else 0, "optionInt": 0}
+        # The app sends optionInt 1 for these; 0 is rejected as an invalid value.
+        payload = {"serialNumber": serial_number, "functionType": function_type, "controlSwitch": 1 if enabled else 0, "optionInt": 1}
         self._request("PUT", "/catbox-server/box/config/switch/update", payload=payload, auth=True)
 
     def set_box_full_alert(self, serial_number: str, uses: int) -> None:

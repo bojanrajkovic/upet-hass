@@ -6,7 +6,8 @@ from typing import Any, Callable
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -72,8 +73,23 @@ PERIOD_SWITCHES: tuple[UbpetSwitchDescription, ...] = (
 class UbpetFunctionSwitchDescription(SwitchEntityDescription):
     function_type: int
     is_on_fn: Callable[[dict[str, Any]], bool | None]
+    # Writes the accepted value into the cached config until the next refresh confirms it.
+    apply_fn: Callable[[dict[str, Any], bool], None]
     # boxFunctionVOList type the box must report; None when every box has the function.
     capability: int | None = None
+
+
+def _set_key(key: str) -> Callable[[dict[str, Any], bool], None]:
+    def apply(config: dict[str, Any], enabled: bool) -> None:
+        config[key] = 1 if enabled else 0
+
+    return apply
+
+
+def _set_notify_switch(config: dict[str, Any], enabled: bool) -> None:
+    for entry in config.get("notifyConfigList") or []:
+        if isinstance(entry, dict) and entry.get("type") == 1:
+            entry["openSwitch"] = 1 if enabled else 0
 
 
 def _notify_switch(config: dict[str, Any], notify_type: int) -> bool | None:
@@ -82,6 +98,8 @@ def _notify_switch(config: dict[str, Any], notify_type: int) -> bool | None:
             return entry.get("openSwitch") == 1
     return None
 
+
+CONFIRM_DELAY_S = 15
 
 FUNCTION_SWITCHES: tuple[UbpetFunctionSwitchDescription, ...] = (
     UbpetFunctionSwitchDescription(
@@ -92,6 +110,7 @@ FUNCTION_SWITCHES: tuple[UbpetFunctionSwitchDescription, ...] = (
         entity_category=EntityCategory.CONFIG,
         function_type=0,
         is_on_fn=lambda config: config.get("controlBoardSwitch") == 1,
+        apply_fn=_set_key("controlBoardSwitch"),
     ),
     UbpetFunctionSwitchDescription(
         key="foreign_object_detection",
@@ -101,6 +120,7 @@ FUNCTION_SWITCHES: tuple[UbpetFunctionSwitchDescription, ...] = (
         entity_category=EntityCategory.CONFIG,
         function_type=1,
         is_on_fn=lambda config: _notify_switch(config, 1),
+        apply_fn=_set_notify_switch,
         capability=2,
     ),
     UbpetFunctionSwitchDescription(
@@ -112,6 +132,7 @@ FUNCTION_SWITCHES: tuple[UbpetFunctionSwitchDescription, ...] = (
         function_type=6,
         # Shaking helps sift long or large litter.
         is_on_fn=lambda config: config.get("litterType") == 1,
+        apply_fn=_set_key("litterType"),
         capability=4,
     ),
     UbpetFunctionSwitchDescription(
@@ -122,6 +143,7 @@ FUNCTION_SWITCHES: tuple[UbpetFunctionSwitchDescription, ...] = (
         entity_category=EntityCategory.CONFIG,
         function_type=7,
         is_on_fn=lambda config: config.get("boxFullAlertSwitch") == 1,
+        apply_fn=_set_key("boxFullAlertSwitch"),
     ),
 )
 
@@ -305,7 +327,16 @@ class UbpetFunctionSwitch(UbpetBaseSwitch):
         await self.hass.async_add_executor_job(
             self.coordinator.client.set_function_switch, self._serial, self.entity_description.function_type, enabled
         )
-        await self.coordinator.async_request_refresh()
+        # The vendor only reports the new value once the box applies it, so a refresh right
+        # away reads the old one. Show the accepted value now and confirm a little later.
+        if item := self._device_item:
+            self.entity_description.apply_fn(item.setdefault("config", {}), enabled)
+            self.coordinator.async_update_listeners()
+        async_call_later(self.hass, CONFIRM_DELAY_S, self._confirm)
+
+    @callback
+    def _confirm(self, _now: Any) -> None:
+        self.hass.async_create_task(self.coordinator.async_request_refresh())
 
 
 class UbpetPeriodSwitch(UbpetBaseSwitch):

@@ -589,7 +589,7 @@ def summarize_all_state_body(body: bytes) -> dict[str, Any]:
     if isinstance(w_state, int):
         summary["w_state_name"] = WORK_STATE_NAMES.get(w_state, f"unknown_{w_state}")
         summary["w_state_app_name"] = WORK_STATE_APP_NAMES.get(w_state, f"UNKNOWN_{w_state}")
-    # US firmware reports a box at rest as mode idle with state running; treat that as standby.
+    # Several firmwares (US MW-SC02, EU C10) report a box at rest as mode idle with state running.
     if w_mode == 0 and w_state == 1:
         summary["w_state_app_name"] = WORK_STATE_APP_NAMES[0]
     return summary

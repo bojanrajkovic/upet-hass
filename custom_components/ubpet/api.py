@@ -216,6 +216,15 @@ class UbpetClient:
         data = self._request("GET", "/catbox-server/web/cat/info", auth=True)
         return _require_list(data)
 
+    def get_cat_statistic(self, cat_info_id: int, period_type: int) -> list[dict[str, Any]]:
+        """Per-period visit statistics, as the app shows them.
+
+        period_type 1 is today (one entry per visit), 2 this week (per day), 3 this year
+        (per month). Days are bucketed in the account's local time zone.
+        """
+        payload = {"catInfoId": cat_info_id, "periodType": period_type}
+        return _require_list(self._request("POST", "/catbox-server/web/box/record/statistic", payload=payload, auth=True))
+
     def get_box_records(self, serial_number: str, message_type: int, size: int = 1) -> list[dict[str, Any]]:
         payload = {
             "eventTime": "0",
@@ -317,12 +326,17 @@ class UbpetClient:
                 "box_use_times": _safe_dict_call(self.get_box_use_times, serial),
                 "deodorant": _safe_dict_call(self.get_deodorant_status, serial),
                 "online": _safe_dict_call(self.get_device_online, serial),
-                "cat_records": _safe_list_call(self.get_box_records, serial, 0, VISIT_HISTORY_SIZE),
-                "device_records": _safe_list_call(self.get_box_records, serial, 1, VISIT_HISTORY_SIZE),
+                # None, not [], on failure: an empty list means "no records yet" to the visit cursor.
+                "cat_records": _optional_list_call(self.get_box_records, serial, 0, VISIT_HISTORY_SIZE),
+                "device_records": _optional_list_call(self.get_box_records, serial, 1, VISIT_HISTORY_SIZE),
             }
         return {
             "devices": by_serial,
-            "cats": _safe_list_call(self.get_cats),
+            "cats": [
+                {**cat, "today": _optional_list_call(self.get_cat_statistic, cat["catInfoId"], 1)}
+                for cat in _safe_list_call(self.get_cats)
+                if cat.get("catInfoId") is not None
+            ],
             "user_id": self.auth.user_id if self.auth else None,
         }
 
@@ -462,6 +476,14 @@ def _safe_dict_call(func, *args) -> dict[str, Any]:
     except (OSError, RuntimeError, UbpetApiError) as err:
         _LOGGER.debug("UPET optional endpoint failed: %s", err)
         return {}
+
+
+def _optional_list_call(func, *args) -> list[dict[str, Any]] | None:
+    try:
+        return func(*args)
+    except (OSError, RuntimeError, UbpetApiError) as err:
+        _LOGGER.debug("UPET optional endpoint failed: %s", err)
+        return None
 
 
 def _safe_list_call(func, *args) -> list[dict[str, Any]]:

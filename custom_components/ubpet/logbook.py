@@ -16,9 +16,13 @@ def async_describe_events(
     @callback
     def describe_visit(event: Event) -> dict[str, Any]:
         data = event.data
-        return {
+        entry = {
             "name": data.get("cat") or "Unidentified cat",
             "message": f"used {data.get('box') or 'the litter box'} ({data.get('weight_kg')} kg, {data.get('duration_s')} s)",
         }
+        # Links the entry to the cat's Visits sensor when the box identified the cat.
+        if data.get("entity_id"):
+            entry["entity_id"] = data["entity_id"]
+        return entry
 
     async_describe_event(DOMAIN, EVENT_VISIT, describe_visit)

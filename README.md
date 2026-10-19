@@ -202,6 +202,7 @@ Event data:
 | `weight_kg`, `duration_s` | Weight measured and time spent |
 | `event_type` | Vendor code: `3` identified cat, `21` unidentified cat |
 | `time` | Visit time, ISO 8601 UTC |
+| `device_id`, `entity_id` | The box's device and the cat's Visits sensor, so the visit shows on both device pages |
 
 Box records, such as a finished cleaning cycle (`event_type` 31), fire
 `ubpet_box_event` the same way, with the same fields. Their cat fields are

@@ -124,6 +124,31 @@ class MqttCodecUnitTests(unittest.TestCase):
         self.assertEqual(decoded["w_cause"], 90)
         self.assertEqual(decoded["timestamp"], 1781260086)
 
+    def test_state_push_decodes_like_all_state_response(self):
+        # Captured from a real box as a cat stepped in: block, with a cat on the scale.
+        frame = mqtt.build_risp_frame(
+            dev=2, cmd=mqtt.RISP_CMD_STATE_PUSH, attr=6, seq=65, body=bytes.fromhex("1002185a20013001900193a3d6d606")
+        )
+
+        decoded = mqtt.summarize_risp_frame(frame)
+
+        self.assertEqual(decoded["risp_cmd"], 1024)
+        self.assertEqual(decoded["w_state_name"], "block")
+        self.assertEqual(decoded["toilet_state"], 1)
+        self.assertEqual(decoded["weigh_state"], 1)
+        self.assertEqual(decoded["timestamp"], 1792381331)
+
+    def test_online_status_notification_decodes_status_and_uid(self):
+        status = mqtt.field_string(1, "status/offline") + mqtt.field_string(2, "1001") + mqtt.field_string(3, "status/offline")
+        any_value = mqtt.encode_any(mqtt.ANY_ONLINE_STATUS_TYPE_URL, status)
+        message = mqtt.field_string(4, "1001") + mqtt.field_string(5, "1001") + mqtt.field_bytes(7, mqtt.encode_message_content("status", any_value))
+
+        decoded = mqtt.summarize_im_message(message)
+
+        self.assertEqual(decoded["content_type"], "status")
+        self.assertEqual(decoded["online_status"], "status/offline")
+        self.assertEqual(decoded["status_uid"], "1001")
+
     def test_service_ids_map_to_app_operation_ordinals(self):
         services = mqtt.SERVICE_ID_MAP
 

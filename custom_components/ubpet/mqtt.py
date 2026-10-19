@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 MESSAGE_PROTOCOL_VERSION = "1.0.1"
 ANY_BYTES_VALUE_TYPE_URL = "type.googleapis.com/google.protobuf.BytesValue"
 ANY_RECEIPT_NOTIFICATION_TYPE_URL = "type.googleapis.com/rosa.im.protobuf.ReceiptNotification"
+ANY_ONLINE_STATUS_TYPE_URL = "type.googleapis.com/rosa.im.protobuf.OnlineStatusNotification"
+ANY_FORCE_OFFLINE_TYPE_URL = "type.googleapis.com/rosa.im.protobuf.ForceOfflineNotification"
 DEFAULT_MQTT_PORT = 21000
 DEFAULT_MQTT_KEEPALIVE = 20
 RISP_SEQ_MAX = 0x7FFF
@@ -21,6 +23,9 @@ RISP_DEV_AIRPET = 0x02
 RISP_CMD_OPERATION = 0x3FB
 RISP_CMD_ALL_STATE = 0x3FD
 RISP_CMD_ALL_STATE_RESPONSE = 0x3FD
+# Unsolicited pushes from the box: a new visit or device record, and a work-state change.
+RISP_CMD_RECORD_PUSH = 0x3FF
+RISP_CMD_STATE_PUSH = 0x400
 RISP_ATTR_REQUEST = 1
 RISP_HEADER_FIELD_NAMES = {
     1: "dev",
@@ -663,6 +668,10 @@ def summarize_any(payload: bytes) -> dict[str, Any]:
         receipt_fields = decode_proto_fields(value)
         summary["receipt_status"] = first_proto_string(receipt_fields, 1)
         summary["receipt_cause"] = first_proto_string(receipt_fields, 2)
+    elif type_url == ANY_ONLINE_STATUS_TYPE_URL and isinstance(value, bytes):
+        status_fields = decode_proto_fields(value)
+        summary["online_status"] = first_proto_string(status_fields, 1)
+        summary["status_uid"] = first_proto_string(status_fields, 2)
     elif type_url == ANY_BYTES_VALUE_TYPE_URL and isinstance(value, bytes):
         bytes_fields = decode_proto_fields(value)
         command_proto = first_proto_value(bytes_fields, 1, 2)
@@ -707,7 +716,7 @@ def summarize_risp_frame(frame: bytes) -> dict[str, Any]:
         op_fields = decode_proto_fields(body) if body else []
         summary["op_mode"] = first_proto_value(op_fields, 1, 0)
         summary["op_state"] = first_proto_value(op_fields, 2, 0)
-    elif values.get("cmd") == RISP_CMD_ALL_STATE_RESPONSE:
+    elif values.get("cmd") in (RISP_CMD_ALL_STATE_RESPONSE, RISP_CMD_STATE_PUSH):
         summary.update(summarize_all_state_body(body))
     return summary
 

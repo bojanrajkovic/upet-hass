@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.config_entries import ConfigEntry
@@ -68,6 +68,70 @@ PERIOD_SWITCHES: tuple[UbpetSwitchDescription, ...] = (
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class UbpetFunctionSwitchDescription(SwitchEntityDescription):
+    function_type: int
+    is_on_fn: Callable[[dict[str, Any]], bool | None]
+    # boxFunctionVOList type the box must report; None when every box has the function.
+    capability: int | None = None
+
+
+def _notify_switch(config: dict[str, Any], notify_type: int) -> bool | None:
+    for entry in config.get("notifyConfigList") or []:
+        if isinstance(entry, dict) and entry.get("type") == notify_type:
+            return entry.get("openSwitch") == 1
+    return None
+
+
+FUNCTION_SWITCHES: tuple[UbpetFunctionSwitchDescription, ...] = (
+    UbpetFunctionSwitchDescription(
+        key="child_lock",
+        name="Child lock",
+        icon="mdi:lock",
+        translation_key="child_lock",
+        entity_category=EntityCategory.CONFIG,
+        function_type=0,
+        is_on_fn=lambda config: config.get("controlBoardSwitch") == 1,
+    ),
+    UbpetFunctionSwitchDescription(
+        key="foreign_object_detection",
+        name="Foreign object detection",
+        icon="mdi:eye-outline",
+        translation_key="foreign_object_detection",
+        entity_category=EntityCategory.CONFIG,
+        function_type=1,
+        is_on_fn=lambda config: _notify_switch(config, 1),
+        capability=2,
+    ),
+    UbpetFunctionSwitchDescription(
+        key="shake_mode",
+        name="Shake mode",
+        icon="mdi:vibrate",
+        translation_key="shake_mode",
+        entity_category=EntityCategory.CONFIG,
+        function_type=6,
+        # Shaking helps sift long or large litter.
+        is_on_fn=lambda config: config.get("litterType") == 1,
+        capability=4,
+    ),
+    UbpetFunctionSwitchDescription(
+        key="box_full_alert",
+        name="Waste bin full alert",
+        icon="mdi:delete-alert-outline",
+        translation_key="box_full_alert",
+        entity_category=EntityCategory.CONFIG,
+        function_type=7,
+        is_on_fn=lambda config: config.get("boxFullAlertSwitch") == 1,
+    ),
+)
+
+
+def _has_capability(config: dict[str, Any], capability: int | None) -> bool:
+    if capability is None:
+        return True
+    return any(isinstance(f, dict) and f.get("type") == capability for f in config.get("boxFunctionVOList") or [])
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: UbpetDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SwitchEntity] = []
@@ -80,6 +144,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         for description in PERIOD_SWITCHES:
             if _first_period_config(config, description.config_list_key):
                 entities.append(UbpetPeriodSwitch(coordinator, entry.entry_id, serial, description))
+        entities.extend(
+            UbpetFunctionSwitch(coordinator, entry.entry_id, serial, description)
+            for description in FUNCTION_SWITCHES
+            if _has_capability(config, description.capability)
+        )
     async_add_entities(entities)
 
 
@@ -206,6 +275,37 @@ class UbpetEmptyWasteBinReminderSwitch(UbpetBaseSwitch):
         if not item:
             return None
         return _empty_waste_bin_reminder_config(item.get("config", {}))
+
+
+class UbpetFunctionSwitch(UbpetBaseSwitch):
+    entity_description: UbpetFunctionSwitchDescription
+
+    def __init__(
+        self,
+        coordinator: UbpetDataUpdateCoordinator,
+        entry_id: str,
+        serial: str,
+        description: UbpetFunctionSwitchDescription,
+    ) -> None:
+        super().__init__(coordinator, entry_id, serial, description.key)
+        self.entity_description = description
+
+    @property
+    def is_on(self) -> bool | None:
+        item = self._device_item
+        return self.entity_description.is_on_fn(item.get("config", {})) if item else None
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._set(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._set(False)
+
+    async def _set(self, enabled: bool) -> None:
+        await self.hass.async_add_executor_job(
+            self.coordinator.client.set_function_switch, self._serial, self.entity_description.function_type, enabled
+        )
+        await self.coordinator.async_request_refresh()
 
 
 class UbpetPeriodSwitch(UbpetBaseSwitch):

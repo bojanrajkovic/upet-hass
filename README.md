@@ -126,7 +126,6 @@ Device sensors:
 - Waste-bin level.
 - Waste-bin last reset.
 - Box full max.
-- Box full alert.
 - Deodorant remaining days.
 - Auto clean delay.
 - Firmware version.
@@ -149,10 +148,12 @@ Device binary sensors:
 - Deodorant expired.
 - Sensor enabled.
 - Camera enabled.
-- Child lock.
 
 Device controls:
 
+- Child lock, waste bin full alert, and shake mode (on boxes that support it) switches.
+- Foreign object detection switch, on boxes that report the capability. The MW-SC02 doesn't.
+- Waste bin full threshold number, up to the bin's capacity the box reports.
 - Auto clean delay number.
 - Auto clean switch.
 - Deodorant alert switch.

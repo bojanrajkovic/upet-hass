@@ -318,7 +318,7 @@ class UbpetClient:
                 "deodorant": _safe_dict_call(self.get_deodorant_status, serial),
                 "online": _safe_dict_call(self.get_device_online, serial),
                 "cat_records": _safe_list_call(self.get_box_records, serial, 0, VISIT_HISTORY_SIZE),
-                "device_records": _safe_list_call(self.get_box_records, serial, 1, 1),
+                "device_records": _safe_list_call(self.get_box_records, serial, 1, VISIT_HISTORY_SIZE),
             }
         return {
             "devices": by_serial,

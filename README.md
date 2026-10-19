@@ -179,6 +179,10 @@ Event data:
 | `event_type` | Vendor code: `3` identified cat, `21` unidentified cat |
 | `time` | Visit time, ISO 8601 UTC |
 
+Box records, such as a finished cleaning cycle (`event_type` 31), fire
+`ubpet_box_event` the same way, with the same fields. Their cat fields are
+empty.
+
 The event reflects the cat known when the visit first appears. Assigning a
 visit to a cat later in the app doesn't fire a new event.
 

@@ -385,6 +385,51 @@ class ApiUnitTests(unittest.TestCase):
         self.assertEqual(recorder.requests[1].get_method(), "POST")
         self.assertEqual(recorder.payloads()[1], {"serialNumber": "SN123"})
 
+    def test_set_function_switch_uses_the_app_switch_payload(self):
+        recorder = UrlopenRecorder(
+            [
+                (
+                    200,
+                    {
+                        "token": {"token": "auth-token", "refreshToken": None, "expireAt": 9999999999999},
+                        "user": {"userId": 100},
+                    },
+                ),
+                (200, {"code": 0, "message": "success", "data": None, "success": True}),
+            ]
+        )
+
+        with patch.object(api.urllib.request, "urlopen", recorder):
+            self.make_client().set_function_switch("SN123", 6, True)
+
+        self.assertEqual(recorder.requests[1].selector, "/catbox-server/box/config/switch/update")
+        self.assertEqual(recorder.requests[1].get_method(), "PUT")
+        self.assertEqual(
+            recorder.payloads()[1],
+            {"serialNumber": "SN123", "functionType": 6, "controlSwitch": 1, "optionInt": 0},
+        )
+
+    def test_set_box_full_alert_sends_threshold(self):
+        recorder = UrlopenRecorder(
+            [
+                (
+                    200,
+                    {
+                        "token": {"token": "auth-token", "refreshToken": None, "expireAt": 9999999999999},
+                        "user": {"userId": 100},
+                    },
+                ),
+                (200, {"code": 0, "message": "success", "data": None, "success": True}),
+            ]
+        )
+
+        with patch.object(api.urllib.request, "urlopen", recorder):
+            self.make_client().set_box_full_alert("SN123", 25)
+
+        self.assertEqual(recorder.requests[1].selector, "/catbox-server/box/config/box-full-alert")
+        self.assertEqual(recorder.requests[1].get_method(), "PUT")
+        self.assertEqual(recorder.payloads()[1], {"serialNumber": "SN123", "boxFullAlertTimes": 25})
+
     def test_set_deodorant_alert_sends_deodorant_switch_payload(self):
         recorder = UrlopenRecorder(
             [

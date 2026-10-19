@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import UbpetDataUpdateCoordinator
+from .registry import waste_bin_reminder_config
 
 WEEKDAYS: tuple[tuple[int, str], ...] = (
     (1, "Monday"),
@@ -52,7 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator: UbpetDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SelectEntity] = []
     for serial, item in coordinator.data.get("devices", {}).items():
-        if _empty_waste_bin_reminder_config(item.get("config", {})):
+        if waste_bin_reminder_config(item.get("config", {})):
             entities.append(UbpetEmptyWasteBinReminderDaysSelect(coordinator, entry.entry_id, serial))
     async_add_entities(entities)
 
@@ -111,7 +112,7 @@ class UbpetEmptyWasteBinReminderDaysSelect(CoordinatorEntity[UbpetDataUpdateCoor
         item = self.coordinator.data.get("devices", {}).get(self._serial)
         if not item:
             return None
-        return _empty_waste_bin_reminder_config(item.get("config", {}))
+        return waste_bin_reminder_config(item.get("config", {}))
 
 
 def _days_label(period: int) -> str:
@@ -127,10 +128,3 @@ def _period_value(config: dict[str, Any]) -> int:
         return int(config.get("period") or 0)
     except (TypeError, ValueError):
         return 0
-
-
-def _empty_waste_bin_reminder_config(config: dict[str, Any]) -> dict[str, Any] | None:
-    for item in config.get("notifyConfigList", []):
-        if isinstance(item, dict) and item.get("type") == 4 and item.get("notifyConfigId") is not None:
-            return item
-    return None

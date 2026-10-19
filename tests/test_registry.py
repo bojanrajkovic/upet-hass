@@ -27,5 +27,17 @@ class StillReportedTests(unittest.TestCase):
         self.assertFalse(registry.still_reported({("other", "SN1")}, DATA))
 
 
+class CameraTests(unittest.TestCase):
+    def test_camera_follows_the_cat_face_capability(self):
+        with_camera = {"capabilities": {"capabilities": [{"code": "cat_face_upload", "enabled": True}]}}
+        self.assertTrue(registry.has_camera(with_camera))
+        self.assertFalse(registry.has_camera({"capabilities": {"capabilities": []}}))
+
+    def test_unknown_capabilities_keep_the_camera(self):
+        # A failed fetch must not hide entities on a box that has a camera.
+        self.assertTrue(registry.has_camera({"capabilities": None}))
+        self.assertTrue(registry.has_camera({}))
+
+
 if __name__ == "__main__":
     unittest.main()

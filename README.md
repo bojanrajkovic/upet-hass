@@ -190,6 +190,12 @@ go stale and aren't used.
 
 Cat picture URLs are exposed as cat entity attributes when returned by the vendor API.
 
+Entities only appear for hardware the box has: camera entities need the
+`cat_face_upload` capability (from `/catbox-server/box/config/device/capabilities`), the light
+needs a `lightSwitch` in the box config, and the empty-waste-bin reminder needs a reminder
+config. The rake buttons are disabled by default, because only UPET's open-tray boxes have a
+rake and the API doesn't say which those are.
+
 Re-pairing a box or recreating a cat profile gives it a new vendor id, so the old device stays
 behind with dead entities. Delete it from the device page; the integration allows deleting any
 box or cat the account no longer reports.

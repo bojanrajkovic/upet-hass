@@ -149,6 +149,27 @@ class MqttCodecUnitTests(unittest.TestCase):
         self.assertEqual(decoded["online_status"], "status/offline")
         self.assertEqual(decoded["status_uid"], "1001")
 
+    def test_classify_push_routes_each_message_kind(self):
+        boxes = {"2001": "SN1"}
+        cases = [
+            ({"type_url": mqtt.ANY_FORCE_OFFLINE_TYPE_URL, "from_uid": "1"}, mqtt.Kicked()),
+            ({"type_url": mqtt.ANY_ONLINE_STATUS_TYPE_URL, "online_status": "status/online", "status_uid": "2001"}, mqtt.OnlineChange("SN1", True)),
+            ({"type_url": mqtt.ANY_ONLINE_STATUS_TYPE_URL, "online_status": "status/offline", "status_uid": "2001"}, mqtt.OnlineChange("SN1", False)),
+            ({"from_uid": "2001", "risp_cmd": mqtt.RISP_CMD_RECORD_PUSH}, mqtt.NewRecord("SN1")),
+            ({"from_uid": "9999", "risp_cmd": mqtt.RISP_CMD_RECORD_PUSH}, mqtt.Ignored("unknown sender")),
+            ({"from_uid": "2001", "risp_cmd": mqtt.RISP_CMD_OPERATION}, mqtt.Ignored("unhandled message")),
+            ({"from_uid": "2001", "content_type": "receipt"}, mqtt.Ignored("unhandled message")),
+        ]
+        for decoded, expected in cases:
+            with self.subTest(decoded=decoded):
+                self.assertEqual(mqtt.classify_push(decoded, boxes), expected)
+
+    def test_classify_push_returns_state_for_pushes_and_replies(self):
+        for cmd in (mqtt.RISP_CMD_STATE_PUSH, mqtt.RISP_CMD_ALL_STATE_RESPONSE):
+            decoded = {"from_uid": "2001", "risp_cmd": cmd, "w_state": 2}
+            with self.subTest(cmd=cmd):
+                self.assertEqual(mqtt.classify_push(decoded, {"2001": "SN1"}), mqtt.StatePush("SN1", decoded))
+
     def test_service_ids_map_to_app_operation_ordinals(self):
         services = mqtt.SERVICE_ID_MAP
 

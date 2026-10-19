@@ -626,6 +626,64 @@ def collect_mqtt_messages(conn: Any, *, timeout: float, listen_seconds: float, p
     return messages
 
 
+@dataclass(frozen=True, slots=True)
+class Kicked:
+    """Another login on the account took over this IM session."""
+
+
+@dataclass(frozen=True, slots=True)
+class StatePush:
+    serial: str
+    state: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class NewRecord:
+    """The box wrote a visit or device record; fetch it over REST."""
+
+    serial: str
+
+
+@dataclass(frozen=True, slots=True)
+class OnlineChange:
+    serial: str
+    online: bool
+
+
+@dataclass(frozen=True, slots=True)
+class Ignored:
+    reason: str
+
+
+PushMessage = Kicked | StatePush | NewRecord | OnlineChange | Ignored
+
+
+def classify_push(decoded: dict[str, Any], uid_to_serial: dict[str, str]) -> PushMessage:
+    """Decide what a decoded IM message means for the integration.
+
+    `uid_to_serial` maps each box's IM user id to its serial number. Messages
+    from anything else, such as command receipts, are ignored.
+    """
+    type_url = decoded.get("type_url")
+    if type_url == ANY_FORCE_OFFLINE_TYPE_URL:
+        return Kicked()
+    if type_url == ANY_ONLINE_STATUS_TYPE_URL:
+        serial = uid_to_serial.get(str(decoded.get("status_uid")))
+        status = decoded.get("online_status")
+        if serial is None or status not in ("status/online", "status/offline"):
+            return Ignored("unknown status")
+        return OnlineChange(serial, status == "status/online")
+    serial = uid_to_serial.get(str(decoded.get("from_uid")))
+    if serial is None:
+        return Ignored("unknown sender")
+    cmd = decoded.get("risp_cmd")
+    if cmd in (RISP_CMD_STATE_PUSH, RISP_CMD_ALL_STATE_RESPONSE):
+        return StatePush(serial, decoded)
+    if cmd == RISP_CMD_RECORD_PUSH:
+        return NewRecord(serial)
+    return Ignored("unhandled message")
+
+
 def decode_mqtt_payload_safely(payload: bytes) -> dict[str, Any]:
     try:
         return summarize_im_message(payload)

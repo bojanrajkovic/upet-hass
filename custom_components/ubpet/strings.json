@@ -106,6 +106,30 @@
       },
       "control_board_switch": {
         "name": "Child lock"
+      },
+      "cat_nearby": {
+        "name": "Cat nearby"
+      },
+      "scale_fault": {
+        "name": "Scale fault"
+      },
+      "light": {
+        "name": "Light"
+      },
+      "back_cover_open": {
+        "name": "Back cover open"
+      },
+      "firmware_updating": {
+        "name": "Firmware updating"
+      },
+      "camera_fault": {
+        "name": "Camera fault"
+      },
+      "drum_stuck": {
+        "name": "Drum stuck"
+      },
+      "drum_not_in_place": {
+        "name": "Drum not in place"
       }
     },
     "number": {

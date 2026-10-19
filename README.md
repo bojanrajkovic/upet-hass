@@ -174,6 +174,9 @@ Event data:
 | `event_type` | Vendor code: `3` identified cat, `21` unidentified cat |
 | `time` | Visit time, ISO 8601 UTC |
 
+The event reflects the cat known when the visit first appears. Assigning a
+visit to a cat later in the app doesn't fire a new event.
+
 The last reported record id is stored per box, so a restart neither drops nor
 replays visits. Adding the integration doesn't replay past visits. More than 20
 visits on one box between two polls (3 minutes, or a long outage) loses the

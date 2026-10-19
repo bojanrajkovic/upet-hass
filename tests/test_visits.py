@@ -54,6 +54,23 @@ class NewVisitsTests(unittest.TestCase):
         self.assertEqual(visits.new_visits(None, last_record_id=7), visits.VisitBatch(visits=[], last_record_id=7))
 
 
+class TodayTotalsTests(unittest.TestCase):
+    def test_sums_the_days_visits(self):
+        # Shape of POST /catbox-server/web/box/record/statistic with periodType 1.
+        entries = [
+            {"periodType": 1, "dateVal": "10:04", "number": 1, "costTime": 165.0},
+            {"periodType": 1, "dateVal": "18:30", "number": 1, "costTime": 40.5},
+        ]
+
+        self.assertEqual(visits.today_totals(entries), visits.DayTotals(visits=2, seconds=205.5))
+
+    def test_no_visits_today_is_zero(self):
+        self.assertEqual(visits.today_totals([]), visits.DayTotals(visits=0, seconds=0.0))
+
+    def test_failed_fetch_is_unknown(self):
+        self.assertIsNone(visits.today_totals(None))
+
+
 class VisitEventDataTests(unittest.TestCase):
     def test_identified_cat(self):
         data = visits.visit_event_data("SN1", "Left Litter Box", _record(9))

@@ -216,6 +216,15 @@ class UbpetClient:
         data = self._request("GET", "/catbox-server/web/cat/info", auth=True)
         return _require_list(data)
 
+    def get_cat_statistic(self, cat_info_id: int, period_type: int) -> list[dict[str, Any]]:
+        """Per-period visit statistics, as the app shows them.
+
+        period_type 1 is today (one entry per visit), 2 this week (per day), 3 this year
+        (per month). Days are bucketed in the account's local time zone.
+        """
+        payload = {"catInfoId": cat_info_id, "periodType": period_type}
+        return _require_list(self._request("POST", "/catbox-server/web/box/record/statistic", payload=payload, auth=True))
+
     def get_box_records(self, serial_number: str, message_type: int, size: int = 1) -> list[dict[str, Any]]:
         payload = {
             "eventTime": "0",
@@ -323,7 +332,11 @@ class UbpetClient:
             }
         return {
             "devices": by_serial,
-            "cats": _safe_list_call(self.get_cats),
+            "cats": [
+                {**cat, "today": _optional_list_call(self.get_cat_statistic, cat["catInfoId"], 1)}
+                for cat in _safe_list_call(self.get_cats)
+                if cat.get("catInfoId") is not None
+            ],
             "user_id": self.auth.user_id if self.auth else None,
         }
 

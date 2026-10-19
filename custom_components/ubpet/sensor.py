@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import UbpetDataUpdateCoordinator
-from .visits import visit_event_data
+from .visits import today_totals, visit_event_data
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -182,21 +182,22 @@ CAT_SENSORS: tuple[UbpetSensorDescription, ...] = (
     ),
     UbpetSensorDescription(
         key="cat_visits",
-        name="Visits",
+        name="Visits today",
         icon="mdi:cat",
         translation_key="cat_visits",
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda item: item.get("number"),
+        # Resets at local midnight; total_increasing keeps a daily sum in long-term statistics.
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda item: _today(item, "visits"),
     ),
     UbpetSensorDescription(
         key="cat_cost_time",
-        name="Usage duration",
+        name="Time in box today",
         icon="mdi:timer-outline",
         translation_key="cat_cost_time",
         native_unit_of_measurement=UnitOfTime.SECONDS,
         device_class=SensorDeviceClass.DURATION,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda item: item.get("costTime"),
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda item: _today(item, "seconds"),
     ),
 )
 
@@ -352,6 +353,11 @@ def _milliseconds_to_datetime(value: Any) -> datetime | None:
     if milliseconds <= 0:
         return None
     return datetime.fromtimestamp(milliseconds / 1000, UTC)
+
+
+def _today(item: dict[str, Any], field: str) -> float | None:
+    totals = today_totals(item.get("today"))
+    return getattr(totals, field) if totals is not None else None
 
 
 def _latest_cat_record(item: dict[str, Any]) -> dict[str, Any]:

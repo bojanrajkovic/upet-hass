@@ -39,6 +39,27 @@ def new_visits(records: list[dict[str, Any]] | None, last_record_id: int | None)
     return VisitBatch(visits=sorted(fresh, key=lambda record: record["recordId"]), last_record_id=max(newest, last_record_id))
 
 
+@dataclass(frozen=True, slots=True)
+class DayTotals:
+    """A cat's visits and time in the box so far today, in the account's local day."""
+
+    visits: int
+    seconds: float
+
+
+def today_totals(entries: list[dict[str, Any]] | None) -> DayTotals | None:
+    """Sum the per-visit entries of the day statistic (periodType 1); None if the fetch failed.
+
+    The app reads these, not the cat profile's `number` and `costTime`, which go stale.
+    """
+    if entries is None:
+        return None
+    return DayTotals(
+        visits=sum(int(entry.get("number") or 0) for entry in entries),
+        seconds=float(sum(float(entry.get("costTime") or 0) for entry in entries)),
+    )
+
+
 def visit_event_data(serial: str, box_name: str | None, record: dict[str, Any]) -> dict[str, Any]:
     """Build the `ubpet_visit` event payload from one cat record.
 

@@ -7,6 +7,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -48,6 +49,7 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_rest_update_at: datetime | None = None
         self._last_mqtt_update_at_by_serial: dict[str, datetime] = {}
         # Last reported cat record id per serial. Stored so a restart neither drops nor replays visits.
+        self._entry_id = entry_id
         self._visit_store: Store[dict[str, int]] = Store(hass, 1, f"{DOMAIN}.{entry_id}.visits")
         self._visit_cursor: dict[str, int] | None = None
 
@@ -87,7 +89,8 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 cursor_key = serial + suffix
                 batch = new_visits(item.get(records_key), self._visit_cursor.get(cursor_key))
                 for record in batch.visits:
-                    self.hass.bus.async_fire(event, visit_event_data(serial, box_name, record))
+                    data = visit_event_data(serial, box_name, record)
+                    self.hass.bus.async_fire(event, {**data, **self._logbook_links(serial, data["cat_id"])})
                 if batch.last_record_id is not None and batch.last_record_id != self._visit_cursor.get(cursor_key):
                     self._visit_cursor[cursor_key] = batch.last_record_id
                     changed = True
@@ -95,6 +98,21 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     _LOGGER.info("UPET reported %s new %s record(s) for %s", len(batch.visits), records_key, serial)
         if changed:
             await self._visit_store.async_save(self._visit_cursor)
+
+    def _logbook_links(self, serial: str, cat_id: int | None) -> dict[str, str]:
+        """Name the box's device and the cat's Visits sensor, so the visit shows on both pages.
+
+        Home Assistant's device and entity pages list logbook entries whose event data
+        carries their device_id or entity_id.
+        """
+        links: dict[str, str] = {}
+        if device := dr.async_get(self.hass).async_get_device(identifiers={(DOMAIN, serial)}):
+            links["device_id"] = device.id
+        if cat_id is not None and (
+            entity_id := er.async_get(self.hass).async_get_entity_id("sensor", DOMAIN, f"{self._entry_id}_cat_{cat_id}_cat_visits")
+        ):
+            links["entity_id"] = entity_id
+        return links
 
     def store_mqtt_result(self, serial: str, result: dict[str, Any] | object) -> bool:
         state = _latest_mqtt_state(result)

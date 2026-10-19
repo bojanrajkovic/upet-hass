@@ -100,6 +100,7 @@ class MqttCodecUnitTests(unittest.TestCase):
             ({"type_url": mqtt.ANY_ONLINE_STATUS_TYPE_URL, "online_status": "status/online", "status_uid": "2001"}, mqtt.OnlineChange("SN1", True)),
             ({"type_url": mqtt.ANY_ONLINE_STATUS_TYPE_URL, "online_status": "status/offline", "status_uid": "2001"}, mqtt.OnlineChange("SN1", False)),
             ({"from_uid": "2001", "risp_cmd": mqtt.RISP_CMD_RECORD_PUSH}, mqtt.NewRecord("SN1")),
+            ({"from_uid": "2001", "risp_cmd": mqtt.RISP_CMD_CONFIG_REQUEST}, mqtt.ConfigChanged("SN1")),
             ({"from_uid": "9999", "risp_cmd": mqtt.RISP_CMD_RECORD_PUSH}, mqtt.Ignored("unknown sender")),
             ({"from_uid": "2001", "risp_cmd": mqtt.RISP_CMD_OPERATION}, mqtt.Ignored("unhandled message")),
             ({"from_uid": "2001", "content_type": "receipt"}, mqtt.Ignored("receipt")),

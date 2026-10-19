@@ -266,6 +266,7 @@ account they're linked to:
 | --- | --- |
 | Work state (RISP `0x400`) | Work mode, work state, box status, and Cat inside update at once. |
 | New record (RISP `0x3ff`) | Visit records are fetched 3 seconds later. |
+| Settings request (RISP `0x9e7`, 2535) | The box picked up a settings change, from the app, the box, or Home Assistant. Settings are fetched 3 seconds later. |
 | Online status | The box's Online sensor updates at once. |
 
 ```mermaid

@@ -55,7 +55,7 @@ BINARY_SENSORS: tuple[UbpetBinarySensorDescription, ...] = (
     ),
     UbpetBinarySensorDescription(
         key="back_cover_open",
-        name="Back cover open",
+        name="Cover open",
         translation_key="back_cover_open",
         device_class=BinarySensorDeviceClass.PROBLEM,
         value_fn=_state_is("lid_state", lambda value: value == 1),
@@ -196,6 +196,6 @@ class UbpetDeviceBinarySensor(CoordinatorEntity[UbpetDataUpdateCoordinator], Bin
 
 
 def _cat_inside(item: dict[str, Any]) -> bool | None:
-    # The box reports toilet_state=1 while a cat is on the scale and drops the field once it leaves.
+    # Worked out by push_logic.next_presence, which ignores scale readings while the cover is off.
     state = item.get("mqtt_state")
-    return state.get("toilet_state") == 1 if isinstance(state, dict) else None
+    return state.get("cat_inside") if isinstance(state, dict) else None

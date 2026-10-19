@@ -1,8 +1,25 @@
-# UPET / Airrobo Cat Litter Box for Home Assistant
+# UPET / Airrobo / Meowant Cat Litter Box for Home Assistant
 
-Custom Home Assistant integration for UPET / Airrobo smart cat litter boxes.
+Custom Home Assistant integration for UPET, Airrobo and Meowant self-cleaning litter boxes,
+which all run on the same vendor cloud. It works with accounts from the UPET app (Europe and
+Russia) and the AIR PET app (US and Canada), which Meowant boxes use.
 
-This integration uses the vendor cloud API for account/device data and the vendor IM/MQTT channel for live updates and work commands.
+This is a maintained fork of [CrazzyBerg/upet-hass](https://github.com/CrazzyBerg/upet-hass),
+which did the original reverse engineering. The fork adds:
+
+- **US and Canada accounts** from the AIR PET app.
+- **Live updates** over one persistent MQTT connection: cat visits within seconds, a
+  `Cat inside` sensor, and online status pushed by the box.
+- **A visit log**: a Home Assistant event for every visit, presence change, box record, and
+  undecoded vendor message, ready to keep long term.
+
+The integration uses the vendor cloud API for account and device data, and the vendor IM/MQTT
+channel for live updates and work commands.
+
+| Box | Region | Tested |
+| --- | --- | --- |
+| Meowant MW-SC02 | US (AIR PET) | Everything, including live updates |
+| UPET C10, C31 | EU (UPET) | Cloud data and commands, by upstream users. Live updates are untested on EU accounts; please report how they behave. |
 
 ## Warning
 
@@ -52,9 +69,12 @@ Install through HACS as a custom repository:
 1. Open HACS in Home Assistant.
 2. Go to `Integrations`.
 3. Open the three-dot menu and choose `Custom repositories`.
-4. Add `https://github.com/CrazzyBerg/upet-hass`.
+4. Add `https://github.com/bojanrajkovic/upet-hass`.
 5. Select category `Integration`.
-6. Install `UPET / Airrobo Cat Litter Box`.
+6. Install `UPET / Airrobo / Meowant Cat Litter Box`.
+
+Coming from upstream? Remove the `CrazzyBerg/upet-hass` custom repository first. The
+integration keeps the `ubpet` domain, so existing config entries carry over.
 
 Restart Home Assistant after installation.
 
@@ -68,7 +88,7 @@ Manual installation is also possible by copying this repository's
 Add the integration from Home Assistant:
 
 ```text
-Settings -> Devices & services -> Add integration -> UPET / Airrobo Cat Litter Box
+Settings -> Devices & services -> Add integration -> UPET / Airrobo / Meowant Cat Litter Box
 ```
 
 ## Configuration
@@ -370,3 +390,9 @@ Planned or open work:
 - Implement full-alert threshold setting.
 - Implement writable control board / child lock if a permitted API flow is found.
 - Add Home Assistant platform tests with `pytest-homeassistant-custom-component`.
+
+## Credits
+
+The original integration, the UPET/Airrobo API client, and the MQTT command protocol are the
+work of [@CrazzyBerg](https://github.com/CrazzyBerg) in
+[CrazzyBerg/upet-hass](https://github.com/CrazzyBerg/upet-hass). This fork builds on it.

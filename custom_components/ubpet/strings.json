@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "UPET / Airrobo Cat Litter Box",
+        "title": "UPET / Airrobo / Meowant Cat Litter Box",
         "description": "Select the country configured in the UPET/Airrobo app, then enter your account credentials.",
         "data": {
           "country": "Country",

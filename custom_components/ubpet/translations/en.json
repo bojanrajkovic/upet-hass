@@ -89,6 +89,9 @@
       }
     },
     "binary_sensor": {
+      "cat_inside": {
+        "name": "Cat inside"
+      },
       "online": {
         "name": "Online"
       },

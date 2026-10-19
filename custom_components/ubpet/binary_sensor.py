@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorEntityDescription
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity, BinarySensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -21,6 +21,14 @@ class UbpetBinarySensorDescription(BinarySensorEntityDescription):
 
 
 BINARY_SENSORS: tuple[UbpetBinarySensorDescription, ...] = (
+    UbpetBinarySensorDescription(
+        key="cat_inside",
+        name="Cat inside",
+        icon="mdi:cat",
+        translation_key="cat_inside",
+        device_class=BinarySensorDeviceClass.OCCUPANCY,
+        value_fn=lambda item: _cat_inside(item),
+    ),
     UbpetBinarySensorDescription(
         key="online",
         name="Online",
@@ -101,3 +109,9 @@ class UbpetDeviceBinarySensor(CoordinatorEntity[UbpetDataUpdateCoordinator], Bin
             return None
         value = self.entity_description.value_fn(item)
         return None if value is None else bool(value)
+
+
+def _cat_inside(item: dict[str, Any]) -> bool | None:
+    # The box reports toilet_state=1 while a cat is on the scale and drops the field once it leaves.
+    state = item.get("mqtt_state")
+    return state.get("toilet_state") == 1 if isinstance(state, dict) else None

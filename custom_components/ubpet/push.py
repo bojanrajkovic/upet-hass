@@ -94,6 +94,9 @@ class UbpetPush:
 
     async def async_publish(self, serial: str, service_id: str) -> None:
         """Send a work command or state request to one box."""
+        self._publish(serial, service_id)
+
+    def _publish(self, serial: str, service_id: str) -> None:
         client, box_uid = self._client, self._serial_to_uid.get(serial)
         if client is None or not self.connected or box_uid is None:
             raise HomeAssistantError("Not connected to the AIR PET cloud")
@@ -184,7 +187,10 @@ class UbpetPush:
         _LOGGER.info("UPET MQTT connected for %s box(es)", len(self._serial_to_uid))
         self._coordinator.async_update_listeners()
         for serial in self._serial_to_uid:
-            self._hass.async_create_task(self.async_publish(serial, "request_state"))
+            try:
+                self._publish(serial, "request_state")
+            except HomeAssistantError as err:
+                _LOGGER.debug("UPET MQTT state request for %s failed: %s", serial, err)
         # Catch up on visits recorded while the connection was down.
         self._hass.async_create_task(self._coordinator.async_request_refresh())
 
@@ -193,7 +199,9 @@ class UbpetPush:
         if client is not self._client:
             return
         decoded = decode_mqtt_payload_safely(payload)
-        match classify_push(decoded, self._uid_to_serial):
+        message = classify_push(decoded, self._uid_to_serial)
+        _LOGGER.debug("UPET MQTT push: %s", type(message).__name__)
+        match message:
             case Kicked():
                 _LOGGER.info("UPET MQTT session taken over by another login")
                 self._yielding = True

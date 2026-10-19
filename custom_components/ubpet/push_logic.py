@@ -27,10 +27,14 @@ def reconnect_delay(previous_s: float, *, session_s: float, own_login: bool) -> 
     return min(previous_s * 2, MAX_RECONNECT_S)
 
 
-def cat_left(previous: dict[str, Any] | None, current: dict[str, Any]) -> bool:
-    """True when a state push shows the cat off the scale after being on it.
+def presence_change(previous: dict[str, Any] | None, current: dict[str, Any]) -> bool | None:
+    """True when a cat stepped in, False when it stepped out, None otherwise.
 
     The box reports `toilet_state=1` while a cat is inside and drops the field
-    once it leaves, which is when the vendor writes the visit record.
+    once it leaves, which is when the vendor writes the visit record. Without a
+    previous state (right after a connect) there's no change to report.
     """
-    return bool(previous and previous.get("toilet_state") == 1 and current.get("toilet_state") != 1)
+    if previous is None:
+        return None
+    was_inside, inside = previous.get("toilet_state") == 1, current.get("toilet_state") == 1
+    return inside if was_inside != inside else None

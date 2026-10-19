@@ -44,6 +44,15 @@ class NewVisitsTests(unittest.TestCase):
 
         self.assertEqual(decision, visits.VisitBatch(visits=[], last_record_id=7))
 
+    def test_empty_first_poll_starts_from_zero(self):
+        # A freshly paired box has no records yet; its first record must not be swallowed as history.
+        self.assertEqual(visits.new_visits([], last_record_id=None), visits.VisitBatch(visits=[], last_record_id=0))
+        self.assertEqual([r["recordId"] for r in visits.new_visits([_record(5)], last_record_id=0).visits], [5])
+
+    def test_failed_fetch_keeps_cursor(self):
+        self.assertEqual(visits.new_visits(None, last_record_id=None), visits.VisitBatch(visits=[], last_record_id=None))
+        self.assertEqual(visits.new_visits(None, last_record_id=7), visits.VisitBatch(visits=[], last_record_id=7))
+
 
 class VisitEventDataTests(unittest.TestCase):
     def test_identified_cat(self):

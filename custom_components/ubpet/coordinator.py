@@ -85,7 +85,7 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             box_name = item.get("device", {}).get("deviceName")
             for records_key, event, suffix in RECORD_STREAMS:
                 cursor_key = serial + suffix
-                batch = new_visits(item.get(records_key) or [], self._visit_cursor.get(cursor_key))
+                batch = new_visits(item.get(records_key), self._visit_cursor.get(cursor_key))
                 for record in batch.visits:
                     self.hass.bus.async_fire(event, visit_event_data(serial, box_name, record))
                 if batch.last_record_id is not None and batch.last_record_id != self._visit_cursor.get(cursor_key):

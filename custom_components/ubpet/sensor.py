@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import UbpetDataUpdateCoordinator
+from .visits import visit_event_data
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -63,6 +64,14 @@ DEVICE_SENSORS: tuple[UbpetSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=lambda item: _milliseconds_to_datetime(item["box_use_times"].get("boxUseTimesResetTime")),
+    ),
+    UbpetSensorDescription(
+        key="last_visit",
+        name="Last visit",
+        icon="mdi:cat",
+        translation_key="last_visit",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda item: _milliseconds_to_datetime(_latest_cat_record(item).get("eventTime")),
     ),
     UbpetSensorDescription(
         key="box_full_max",
@@ -252,6 +261,9 @@ class UbpetDeviceSensor(CoordinatorEntity[UbpetDataUpdateCoordinator], SensorEnt
                 "device_status_code": item.get("device", {}).get("deviceStatus"),
                 "mqtt_work_state": _mqtt_state_value(item, "w_state_app_name"),
             }
+        if self.entity_description.key == "last_visit":
+            record = _latest_cat_record(item)
+            return visit_event_data(self._serial, item.get("device", {}).get("deviceName"), record) if record else {}
         if self.entity_description.key.startswith("mqtt_"):
             mqtt_state = item.get("mqtt_state")
             return mqtt_state if isinstance(mqtt_state, dict) else {}
@@ -340,6 +352,11 @@ def _milliseconds_to_datetime(value: Any) -> datetime | None:
     if milliseconds <= 0:
         return None
     return datetime.fromtimestamp(milliseconds / 1000, UTC)
+
+
+def _latest_cat_record(item: dict[str, Any]) -> dict[str, Any]:
+    records = item.get("cat_records") or []
+    return records[0] if records else {}
 
 
 def _box_status(item: dict[str, Any]) -> str | None:

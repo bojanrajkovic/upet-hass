@@ -8,10 +8,12 @@ import time
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import UbpetApiError, UbpetClient
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, EVENT_VISIT
+from .visits import new_visits, visit_event_data
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +26,14 @@ MQTT_STATE_IN_PROGRESS_STALE_SECONDS = 45
 
 
 class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    def __init__(self, hass: HomeAssistant, client: UbpetClient, *, update_interval: timedelta = DEFAULT_SCAN_INTERVAL) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        client: UbpetClient,
+        *,
+        entry_id: str,
+        update_interval: timedelta = DEFAULT_SCAN_INTERVAL,
+    ) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -40,6 +49,9 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_rest_update_at: datetime | None = None
         self._last_mqtt_update_at_by_serial: dict[str, datetime] = {}
         self._next_mqtt_poll_at_by_serial: dict[str, datetime] = {}
+        # Last reported cat record id per serial. Stored so a restart neither drops nor replays visits.
+        self._visit_store: Store[dict[str, int]] = Store(hass, 1, f"{DOMAIN}.{entry_id}.visits")
+        self._visit_cursor: dict[str, int] | None = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         started = time.monotonic()
@@ -59,11 +71,30 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             len(cats) if isinstance(cats, list) else 0,
         )
         self._last_rest_update_at = datetime.now(UTC)
+        if isinstance(devices, dict):
+            await self._fire_new_visits(devices)
         data = self._with_runtime_state(data)
         if self._mqtt_state_polls_enabled:
             self._ensure_mqtt_state_poll_task()
             self._ensure_mqtt_state_polls(data)
         return data
+
+    async def _fire_new_visits(self, devices: dict[str, Any]) -> None:
+        if self._visit_cursor is None:
+            self._visit_cursor = await self._visit_store.async_load() or {}
+        changed = False
+        for serial, item in devices.items():
+            batch = new_visits(item.get("cat_records") or [], self._visit_cursor.get(serial))
+            box_name = item.get("device", {}).get("deviceName")
+            for record in batch.visits:
+                self.hass.bus.async_fire(EVENT_VISIT, visit_event_data(serial, box_name, record))
+            if batch.last_record_id is not None and batch.last_record_id != self._visit_cursor.get(serial):
+                self._visit_cursor[serial] = batch.last_record_id
+                changed = True
+            if batch.visits:
+                _LOGGER.info("UPET reported %s new visit(s) for %s", len(batch.visits), serial)
+        if changed:
+            await self._visit_store.async_save(self._visit_cursor)
 
     def store_mqtt_result(self, serial: str, result: dict[str, Any] | object) -> bool:
         state = _latest_mqtt_state(result)

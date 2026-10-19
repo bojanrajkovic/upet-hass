@@ -2,7 +2,7 @@
 
 Custom Home Assistant integration for UPET / Airrobo smart cat litter boxes.
 
-This integration uses the vendor cloud API for account/device data and the vendor IM/MQTT channel for live work commands and work-state polling.
+This integration uses the vendor cloud API for account/device data and the vendor IM/MQTT channel for live updates and work commands.
 
 ## Warning
 
@@ -35,7 +35,9 @@ For safer use, create a separate UPET/Airrobo account and share litter box acces
   - Raise litter rake.
   - Lower litter rake.
   - Request MQTT state.
-- Live MQTT work status:
+- Live updates pushed by the box:
+  - Cat inside (occupancy).
+  - Online status.
   - Work mode.
   - Work state.
   - Work cause.
@@ -117,6 +119,7 @@ Device sensors:
 
 Device binary sensors:
 
+- Cat inside.
 - Online.
 - Deodorant expired.
 - Sensor enabled.
@@ -158,7 +161,9 @@ Cat picture URLs are exposed as cat entity attributes when returned by the vendo
 
 ## Visit Log
 
-Each poll fetches the last 20 cat records per box. Every record newer than the
+When a box pushes a new record, or a cat steps out, the integration fetches
+the records 3 seconds later. The 3-minute poll catches anything a push missed.
+Each fetch reads the last 20 cat records per box. Every record newer than the
 last one seen fires a `ubpet_visit` event and shows up in the Logbook as
 "Hilda used Left Litter Box (3.3 kg, 59 s)". The `Last visit` sensor on each box
 holds the newest visit, with the same fields as attributes.
@@ -179,8 +184,7 @@ visit to a cat later in the app doesn't fire a new event.
 
 The last reported record id is stored per box, so a restart neither drops nor
 replays visits. Adding the integration doesn't replay past visits. More than 20
-visits on one box between two polls (3 minutes, or a long outage) loses the
-oldest ones.
+visits on one box between two fetches (a long outage) loses the oldest ones.
 
 The recorder purges events after `purge_keep_days` (10 by default). To keep a
 permanent CSV, point an automation at a [File](https://www.home-assistant.io/integrations/file/)
@@ -203,19 +207,50 @@ automation:
             {{ trigger.event.data.duration_s }}
 ```
 
-## MQTT Behavior
+## Live Updates
 
-Work commands are sent through the vendor IM/MQTT path, not REST.
+The integration holds one MQTT connection to the vendor broker
+(`apis.airrobo-home.com:21000`, TLS) per account. The boxes push to every
+account they're linked to:
 
-The integration obtains MQTT credentials and topics from the vendor API, publishes command payloads to the IM publish topic, and polls `request_state` for live work status.
+| Push | What happens |
+| --- | --- |
+| Work state (RISP `0x400`) | Work mode, work state, box status, and Cat inside update at once. |
+| New record (RISP `0x3ff`) | Visit records are fetched 3 seconds later. |
+| Online status | The box's Online sensor updates at once. |
 
-Polling intervals:
+```mermaid
+sequenceDiagram
+  participant Box
+  participant Broker as Vendor broker
+  participant HA as Home Assistant
+  participant API as Vendor REST API
+  Box->>Broker: state: cat inside
+  Broker->>HA: Cat inside = on
+  Box->>Broker: state: cat left, new record
+  Broker->>HA: Cat inside = off
+  HA->>API: fetch last 20 records (3 s later)
+  API-->>HA: visit
+  HA->>HA: fire ubpet_visit
+```
 
-- `RUNNING`: every 1 second.
-- `PAUSED`: every 10 seconds.
-- `PENDING`/standby/unknown: every 60 seconds.
+Commands go out over the same connection. After each connect, the integration
+asks every box for its state, so the sensors fill in before anything happens.
 
-MQTT polling starts after Home Assistant finishes setting up the integration, so startup is not blocked by MQTT traffic.
+### One session per account
+
+The vendor allows one session per account. Any other login, such as the
+mobile app or a second integration, takes over the session and disconnects
+this one. The integration waits a minute before reconnecting, which signs the
+other login out in turn. Each further takeover doubles the wait, up to 30
+minutes, so occasional app use still works. A session that stays up for 10
+minutes resets the wait.
+
+The integration's own token refresh also replaces the session, so in that
+case it reconnects after 5 seconds.
+
+To use the app and the integration side by side, share the boxes to a second
+account and give the integration that one.
 
 ## Confirmed MQTT Commands
 
@@ -245,7 +280,8 @@ Confirmed operation ordinals:
 ## Limitations
 
 - The integration depends on the vendor cloud and vendor IM/MQTT service.
-- Commands are confirmed by MQTT delivery/status responses, but full semantic validation of every receipt/error cause is not complete.
+- One session per account: the mobile app and the integration disconnect each other. See [One session per account](#one-session-per-account).
+- Commands aren't confirmed by their receipts. The state push that follows shows whether the box acted.
 - Control board / child lock is currently exposed as read-only because the observed API flow returns a permission error for writes.
 - Deodorize, direct light control, camera toggle, and full-alert threshold controls are not implemented yet.
 
@@ -275,7 +311,8 @@ The current tests cover:
 - Dashboard aggregation.
 - Settings payload builders.
 - IM credential/contact lookup.
-- MQTT codec, packet helpers, RISP/protobuf payload generation, and service ordinals.
+- MQTT codec, RISP/protobuf payload generation, and service ordinals.
+- Push classification, reconnect backoff, and the cat-left check.
 - Diagnostics redaction.
 
 ## Implementation Notes
@@ -304,7 +341,7 @@ MQTT command format:
 Message -> MessageContent(custom) -> Any(BytesValue) -> CommandProto(protype=2) -> RISP frame -> AirPet protobuf body
 ```
 
-MQTT state request uses RISP command `0x3fd`. Operation commands use RISP command `0x3fb`.
+MQTT state request uses RISP command `0x3fd`. Operation commands use RISP command `0x3fb`. Boxes push work-state changes as `0x400`, with the same body as the `0x3fd` reply, and new-record signals as `0x3ff`.
 
 ## Roadmap
 

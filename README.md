@@ -174,8 +174,12 @@ Device buttons:
 Cat sensors:
 
 - Weight.
-- Visits.
-- Usage duration.
+- Visits today.
+- Time in box today.
+
+The daily counters come from the same statistics the app shows, reset at local midnight, and
+keep a daily sum in long-term statistics. The cat profile's own `number` and `costTime` fields
+go stale and aren't used.
 
 Cat picture URLs are exposed as cat entity attributes when returned by the vendor API.
 

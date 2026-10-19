@@ -246,6 +246,10 @@ other login out in turn. Each further takeover doubles the wait, up to 30
 minutes, so occasional app use still works. A session that stays up for 10
 minutes resets the wait.
 
+While it waits, the integration also skips its REST polls, because any REST
+login would sign the other session out early. When it reconnects, it fetches
+the records it missed.
+
 The integration's own token refresh also replaces the session, so in that
 case it reconnects after 5 seconds.
 

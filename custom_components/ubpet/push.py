@@ -66,10 +66,21 @@ class UbpetPush:
         self._cancel_reconnect: Callable[[], None] | None = None
         self._cancel_fetch: Callable[[], None] | None = None
         self._stopped = False
+        # Another login took the session; stay off the account until the reconnect.
+        self._yielding = False
 
     @property
     def connected(self) -> bool:
         return self._connected_at is not None
+
+    @property
+    def yielding(self) -> bool:
+        """True while backing off after another login took the session.
+
+        Any REST login would sign that other session out, so the coordinator
+        skips its polls until the reconnect.
+        """
+        return self._yielding
 
     async def async_start(self) -> None:
         await self._async_connect()
@@ -94,6 +105,7 @@ class UbpetPush:
 
     async def _async_connect(self, _now: Any = None) -> None:
         self._cancel_reconnect = None
+        self._yielding = False
         if self._stopped:
             return
         try:
@@ -173,6 +185,8 @@ class UbpetPush:
         self._coordinator.async_update_listeners()
         for serial in self._serial_to_uid:
             self._hass.async_create_task(self.async_publish(serial, "request_state"))
+        # Catch up on visits recorded while the connection was down.
+        self._hass.async_create_task(self._coordinator.async_request_refresh())
 
     @callback
     def _handle_message(self, client: paho.Client, payload: bytes) -> None:
@@ -182,6 +196,7 @@ class UbpetPush:
         match classify_push(decoded, self._uid_to_serial):
             case Kicked():
                 _LOGGER.info("UPET MQTT session taken over by another login")
+                self._yielding = True
                 client.disconnect()
             case StatePush(serial=serial, state=state):
                 previous = self._coordinator.mqtt_state(serial)
@@ -202,6 +217,7 @@ class UbpetPush:
         session_s = time.monotonic() - self._connected_at if self._connected_at is not None else 0
         api = self._coordinator.client
         own_login = api.auth is not None and api.auth.token != self._token_at_connect
+        self._yielding = self._yielding and not own_login
         _LOGGER.info("UPET MQTT disconnected after %.0fs: %s", session_s, reason_code)
         self._hass.async_create_task(self._async_close())
         self._coordinator.async_update_listeners()

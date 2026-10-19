@@ -8,14 +8,15 @@ import zlib
 # Bundled app defaults for the recovered mobile API flow. This keeps the raw
 # values out of the repository while preserving out-of-the-box setup.
 _BUNDLE = (
-    "ljYo2jp-YYEa8!l@{T_VHwzs"
-    "{0}x|hdY{I(D6@voyjxyRau$"
-    "z)xun8hTMS1aMo4c1O-"
-    "X5lfh1Ql<nOA&)l^Vn3b@EHB"
-    "toX(!f>Rp+L&FnPPA`ODIbRT"
-    "Z{p1-"
-    "*t+#BdE1<ICnsV~j(f@4KmCd"
-    "?0G#*?_+4WnPs#"
+    "lcOrmu<nsJ$5S!N5>Mgc;l)w"
+    "J$1*hpoi#7;SeCg=xD2Hy4i-"
+    "Kxg_d#S>yRHN?;(!fixIo;%I"
+    "+%ElO7QJCd>wyXOF`WXkk{nh"
+    "Nzx2;WTu|MVSkhz&z*xu!1HI"
+    "t$htW6L0!3Ld4gqRiaL%`O|-"
+    "}gkfM~9+0M}cGaxMdb5VR&X{"
+    "@Oo~#YPBExaGl6rW|c4{bO<6"
+    "3IF<IINJ!<SS"
 )
 
 
@@ -46,3 +47,5 @@ BASE_URL = _VALUES["BASE_URL"]
 APP_ID = _VALUES["APP_ID"]
 APP_KEY = _VALUES["APP_KEY"]
 PRODUCT = _VALUES["PRODUCT"]
+US_APP_ID = _VALUES["US_APP_ID"]
+US_APP_KEY = _VALUES["US_APP_KEY"]

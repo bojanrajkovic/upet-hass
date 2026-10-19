@@ -183,6 +183,9 @@
       "mqtt_request_state": {
         "name": "Request state"
       },
+      "reset_deodorant": {
+        "name": "Reset deodorant"
+      },
       "reset_waste_bin": {
         "name": "Reset waste bin"
       },

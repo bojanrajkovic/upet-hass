@@ -258,6 +258,10 @@ class UbpetClient:
         }
         self._request("PUT", "/catbox-server/box/config/switch/update", payload=payload, auth=True)
 
+    def reset_deodorant(self, serial_number: str) -> None:
+        """Mark the deodorant block replaced, restarting its remaining-days countdown."""
+        self._request("POST", "/catbox-server/app/deodorant-block/replaced", payload={"serialNumber": serial_number}, auth=True)
+
     def set_deodorant_alert(self, serial_number: str, enabled: bool) -> None:
         payload = {
             "serialNumber": serial_number,

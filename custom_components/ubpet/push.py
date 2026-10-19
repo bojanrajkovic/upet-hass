@@ -25,6 +25,7 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.util.ssl import client_context
 
 from .api import UbpetApiError, find_account_uid
+from .const import EVENT_UNKNOWN_MESSAGE
 from .mqtt import (
     DEFAULT_MQTT_KEEPALIVE,
     DEFAULT_MQTT_PORT,
@@ -215,8 +216,18 @@ class UbpetPush:
                 self._schedule_record_fetch()
             case OnlineChange(serial=serial, online=online):
                 self._coordinator.set_online(serial, online)
+            case Ignored(reason="receipt"):
+                pass
             case Ignored(reason=reason):
-                _LOGGER.debug("UPET MQTT message ignored: %s", reason)
+                # Keep anything unrecognized, such as health alerts, so it can be decoded later.
+                self._hass.bus.async_fire(
+                    EVENT_UNKNOWN_MESSAGE,
+                    {
+                        "reason": reason,
+                        **{key: decoded.get(key) for key in ("from_uid", "to_uid", "content_type", "type_url", "risp_cmd")},
+                        "payload_hex": payload.hex(),
+                    },
+                )
 
     @callback
     def _handle_disconnect(self, client: paho.Client, reason_code: Any) -> None:

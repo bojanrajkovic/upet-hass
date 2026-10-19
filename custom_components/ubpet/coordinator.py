@@ -39,7 +39,7 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             always_update=True,
         )
         self.client = client
-        # Set by async_setup_entry before the platforms load.
+        # Set by async_setup_entry before the first refresh.
         self.push: UbpetPush
         self._mqtt_state_by_serial: dict[str, dict[str, Any]] = {}
         self._last_rest_update_at: datetime | None = None
@@ -49,6 +49,9 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._visit_cursor: dict[str, int] | None = None
 
     async def _async_update_data(self) -> dict[str, Any]:
+        if self.push.yielding:
+            # A REST login now would sign out whoever took the session; the reconnect catches up.
+            return self.data
         started = time.monotonic()
         _LOGGER.info("Starting UPET data update")
         try:

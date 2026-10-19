@@ -4,8 +4,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.event import async_call_later
+from homeassistant.core import HomeAssistant
 
 from .api import UbpetClient
 from .const import (
@@ -24,9 +23,9 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import UbpetDataUpdateCoordinator
+from .push import UbpetPush
 
 _LOGGER = logging.getLogger(__name__)
-MQTT_POLL_START_DELAY_SECONDS = 30
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -60,28 +59,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = UbpetDataUpdateCoordinator(hass, client, entry_id=entry.entry_id)
     await coordinator.async_config_entry_first_refresh()
 
+    coordinator.push = UbpetPush(hass, coordinator)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    @callback
-    def _enable_mqtt_state_polls(_now) -> None:
-        coordinator.enable_mqtt_state_polls()
+    entry.async_create_background_task(hass, coordinator.push.async_start(), "ubpet mqtt push")
 
-    entry.async_on_unload(
-        async_call_later(
-            hass,
-            MQTT_POLL_START_DELAY_SECONDS,
-            _enable_mqtt_state_polls,
-        )
-    )
+    async def _stop_push(_event) -> None:
+        await coordinator.push.async_stop()
 
-    @callback
-    def _stop_mqtt_state_polls(_event) -> None:
-        coordinator.cancel_mqtt_state_polls()
-
-    entry.async_on_unload(
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _stop_mqtt_state_polls)
-    )
+    entry.async_on_unload(hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _stop_push))
     return True
 
 
@@ -90,5 +77,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
         if coordinator is not None:
-            coordinator.cancel_mqtt_state_polls()
+            await coordinator.push.async_stop()
     return unload_ok

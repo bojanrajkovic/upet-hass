@@ -111,7 +111,7 @@
         "name": "Light"
       },
       "back_cover_open": {
-        "name": "Back cover open"
+        "name": "Cover open"
       },
       "firmware_updating": {
         "name": "Firmware updating"

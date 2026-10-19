@@ -108,6 +108,8 @@ MQTT_BUTTONS: tuple[UbpetMqttButtonDescription, ...] = (
         name="Raise litter rake",
         icon="mdi:arrow-up-bold",
         translation_key="mqtt_start_rise",
+        # Only UPET's open-tray boxes have a rake, and the API doesn't say which those are.
+        entity_registry_enabled_default=False,
         service_id="start_rise",
     ),
     UbpetMqttButtonDescription(
@@ -115,6 +117,8 @@ MQTT_BUTTONS: tuple[UbpetMqttButtonDescription, ...] = (
         name="Lower litter rake",
         icon="mdi:arrow-down-bold",
         translation_key="mqtt_start_drop",
+        # Only UPET's open-tray boxes have a rake, and the API doesn't say which those are.
+        entity_registry_enabled_default=False,
         service_id="start_drop",
     ),
 )

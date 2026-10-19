@@ -13,12 +13,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import UbpetDataUpdateCoordinator
+from .registry import has_camera
 
 
 @dataclass(frozen=True, kw_only=True)
 class UbpetBinarySensorDescription(BinarySensorEntityDescription):
     value_fn: Callable[[dict[str, Any]], Any]
     attrs_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    # Whether this box has the hardware; None means every box does.
+    supported_fn: Callable[[dict[str, Any]], bool] | None = None
 
 
 # What the app tells the owner for each motor_state when the drum is stuck.
@@ -90,6 +93,7 @@ BINARY_SENSORS: tuple[UbpetBinarySensorDescription, ...] = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_state_is("camera_state", lambda value: value == 1),
+        supported_fn=has_camera,
     ),
     UbpetBinarySensorDescription(
         key="light",
@@ -97,6 +101,8 @@ BINARY_SENSORS: tuple[UbpetBinarySensorDescription, ...] = (
         translation_key="light",
         device_class=BinarySensorDeviceClass.LIGHT,
         value_fn=_state_is("led_state", lambda value: value > 0),
+        # Boxes without a light report no lightSwitch at all.
+        supported_fn=lambda item: item.get("config", {}).get("lightSwitch") is not None,
     ),
     UbpetBinarySensorDescription(
         key="firmware_updating",
@@ -145,6 +151,7 @@ BINARY_SENSORS: tuple[UbpetBinarySensorDescription, ...] = (
         translation_key="camera_switch",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda item: item["config"].get("cameraSwitch") == 1,
+        supported_fn=has_camera,
     ),
 )
 
@@ -153,8 +160,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator: UbpetDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities = [
         UbpetDeviceBinarySensor(coordinator, entry.entry_id, serial, description)
-        for serial in coordinator.data.get("devices", {})
+        for serial, item in coordinator.data.get("devices", {}).items()
         for description in BINARY_SENSORS
+        if description.supported_fn is None or description.supported_fn(item)
     ]
     async_add_entities(entities)
 

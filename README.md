@@ -85,7 +85,9 @@ The integration also needs vendor app credentials:
 
 Bundled app defaults are included with the integration, so normal setup asks
 only for country, account, and password. The selected country chooses the vendor
-region endpoint and is sent as the login area code. The app defaults are stored
+region endpoint and is sent as the login area code. US and Canada accounts from
+the AIR PET app (used by Meowant boxes) route to `apis.airrobo-home.com` with the
+AIR PET app id, because that app keeps its own user pool. The app defaults are stored
 in obfuscated form to keep raw values out of the repository.
 
 If you maintain a private deployment and want to override the bundled app credentials,

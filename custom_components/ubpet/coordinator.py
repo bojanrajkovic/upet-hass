@@ -100,17 +100,20 @@ class UbpetDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._visit_store.async_save(self._visit_cursor)
 
     def _logbook_links(self, serial: str, cat_id: int | None) -> dict[str, str]:
-        """Name the box's device and the cat's Visits sensor, so the visit shows on both pages.
+        """Link a record to the cat's device and the box's Cat inside sensor.
 
-        Home Assistant's device and entity pages list logbook entries whose event data
-        carries their device_id or entity_id.
+        Device pages show logbook entries whose event data names the device, or one of its
+        entities. The logbook skips "continuous" entities (anything with a unit or state
+        class), so the link has to be a device or a binary sensor: the cat's device puts the
+        visit on the cat's page, and the box's Cat inside sensor puts it on the box's page.
+        Unidentified visits name the box's device instead.
         """
+        devices = dr.async_get(self.hass)
         links: dict[str, str] = {}
-        if device := dr.async_get(self.hass).async_get_device(identifiers={(DOMAIN, serial)}):
+        cat_device = devices.async_get_device(identifiers={(DOMAIN, f"cat_{cat_id}")}) if cat_id is not None else None
+        if device := cat_device or devices.async_get_device(identifiers={(DOMAIN, serial)}):
             links["device_id"] = device.id
-        if cat_id is not None and (
-            entity_id := er.async_get(self.hass).async_get_entity_id("sensor", DOMAIN, f"{self._entry_id}_cat_{cat_id}_cat_visits")
-        ):
+        if entity_id := er.async_get(self.hass).async_get_entity_id("binary_sensor", DOMAIN, f"{self._entry_id}_{serial}_cat_inside"):
             links["entity_id"] = entity_id
         return links
 

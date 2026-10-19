@@ -159,6 +159,9 @@
       "mqtt_request_state": {
         "name": "Запитати стан"
       },
+      "reset_deodorant": {
+        "name": "Скинути дезодорант"
+      },
       "reset_waste_bin": {
         "name": "Скинути контейнер"
       },

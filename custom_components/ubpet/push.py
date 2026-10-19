@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import logging
+from datetime import UTC, datetime
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -25,6 +26,7 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.util.ssl import client_context
 
 from .api import UbpetApiError, find_account_uid
+from .const import EVENT_PRESENCE, EVENT_UNKNOWN_MESSAGE
 from .mqtt import (
     DEFAULT_MQTT_KEEPALIVE,
     DEFAULT_MQTT_PORT,
@@ -39,7 +41,7 @@ from .mqtt import (
     mqtt_host_from_base_url,
     resolve_service_payload,
 )
-from .push_logic import cat_left, reconnect_delay
+from .push_logic import presence_change, reconnect_delay
 
 if TYPE_CHECKING:
     from .coordinator import UbpetDataUpdateCoordinator
@@ -209,14 +211,27 @@ class UbpetPush:
             case StatePush(serial=serial, state=state):
                 previous = self._coordinator.mqtt_state(serial)
                 self._coordinator.store_mqtt_result(serial, {"received_messages": [{"decoded": state, "phase": "push"}]})
-                if cat_left(previous, state):
+                inside = presence_change(previous, state)
+                if inside is not None:
+                    self._fire_presence(serial, inside, state)
+                if inside is False:
                     self._schedule_record_fetch()
             case NewRecord():
                 self._schedule_record_fetch()
             case OnlineChange(serial=serial, online=online):
                 self._coordinator.set_online(serial, online)
+            case Ignored(reason="receipt"):
+                pass
             case Ignored(reason=reason):
-                _LOGGER.debug("UPET MQTT message ignored: %s", reason)
+                # Keep anything unrecognized, such as health alerts, so it can be decoded later.
+                self._hass.bus.async_fire(
+                    EVENT_UNKNOWN_MESSAGE,
+                    {
+                        "reason": reason,
+                        **{key: decoded.get(key) for key in ("from_uid", "to_uid", "content_type", "type_url", "risp_cmd")},
+                        "payload_hex": payload.hex(),
+                    },
+                )
 
     @callback
     def _handle_disconnect(self, client: paho.Client, reason_code: Any) -> None:
@@ -238,6 +253,17 @@ class UbpetPush:
         self._delay_s = reconnect_delay(self._delay_s, session_s=session_s, own_login=own_login)
         _LOGGER.info("UPET MQTT reconnecting in %.0fs", self._delay_s)
         self._cancel_reconnect = async_call_later(self._hass, self._delay_s, self._async_connect)
+
+    @callback
+    def _fire_presence(self, serial: str, inside: bool, state: dict[str, Any]) -> None:
+        device = (self._coordinator.data or {}).get("devices", {}).get(serial, {}).get("device", {})
+        # The box stamps each state push in epoch seconds; fall back to now if it didn't.
+        stamp = state.get("timestamp")
+        when = datetime.fromtimestamp(stamp, UTC) if isinstance(stamp, int) and stamp > 0 else datetime.now(UTC)
+        self._hass.bus.async_fire(
+            EVENT_PRESENCE,
+            {"serial_number": serial, "box": device.get("deviceName"), "inside": inside, "time": when.isoformat()},
+        )
 
     @callback
     def _schedule_record_fetch(self) -> None:

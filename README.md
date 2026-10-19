@@ -179,6 +179,20 @@ Event data:
 | `event_type` | Vendor code: `3` identified cat, `21` unidentified cat |
 | `time` | Visit time, ISO 8601 UTC |
 
+Box records, such as a finished cleaning cycle (`event_type` 31), fire
+`ubpet_box_event` the same way, with the same fields. Their cat fields are
+empty.
+
+When a box reports a cat stepping in or out, the integration fires
+`ubpet_presence` with `serial_number`, `box`, `inside` (true or false), and
+`time`, the box's own timestamp. The `Cat inside` sensor follows the same
+pushes.
+
+Any MQTT message the integration doesn't recognize fires
+`ubpet_unknown_message` with its raw bytes in `payload_hex`, plus the sender,
+content type and RISP command when known. Command receipts are skipped. This
+captures pushes nobody has decoded yet, such as health alerts.
+
 The event reflects the cat known when the visit first appears. Assigning a
 visit to a cat later in the app doesn't fire a new event.
 
@@ -316,7 +330,7 @@ The current tests cover:
 - Settings payload builders.
 - IM credential/contact lookup.
 - MQTT codec, RISP/protobuf payload generation, and service ordinals.
-- Push classification, reconnect backoff, and the cat-left check.
+- Push classification, reconnect backoff, and presence changes.
 - Diagnostics redaction.
 
 ## Implementation Notes

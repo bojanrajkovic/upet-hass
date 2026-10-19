@@ -317,8 +317,9 @@ class UbpetClient:
                 "box_use_times": _safe_dict_call(self.get_box_use_times, serial),
                 "deodorant": _safe_dict_call(self.get_deodorant_status, serial),
                 "online": _safe_dict_call(self.get_device_online, serial),
-                "cat_records": _safe_list_call(self.get_box_records, serial, 0, VISIT_HISTORY_SIZE),
-                "device_records": _safe_list_call(self.get_box_records, serial, 1, VISIT_HISTORY_SIZE),
+                # None, not [], on failure: an empty list means "no records yet" to the visit cursor.
+                "cat_records": _optional_list_call(self.get_box_records, serial, 0, VISIT_HISTORY_SIZE),
+                "device_records": _optional_list_call(self.get_box_records, serial, 1, VISIT_HISTORY_SIZE),
             }
         return {
             "devices": by_serial,
@@ -462,6 +463,14 @@ def _safe_dict_call(func, *args) -> dict[str, Any]:
     except (OSError, RuntimeError, UbpetApiError) as err:
         _LOGGER.debug("UPET optional endpoint failed: %s", err)
         return {}
+
+
+def _optional_list_call(func, *args) -> list[dict[str, Any]] | None:
+    try:
+        return func(*args)
+    except (OSError, RuntimeError, UbpetApiError) as err:
+        _LOGGER.debug("UPET optional endpoint failed: %s", err)
+        return None
 
 
 def _safe_list_call(func, *args) -> list[dict[str, Any]]:

@@ -16,18 +16,8 @@ import urllib.parse
 import urllib.request
 
 try:
-    from .mqtt import mqtt_endpoint, publish_service
     from .visits import VISIT_HISTORY_SIZE
 except ImportError:
-    _MQTT_PATH = Path(__file__).with_name("mqtt.py")
-    _mqtt_spec = importlib.util.spec_from_file_location("ubpet_mqtt", _MQTT_PATH)
-    if _mqtt_spec is None or _mqtt_spec.loader is None:
-        raise
-    _mqtt = importlib.util.module_from_spec(_mqtt_spec)
-    sys.modules[_mqtt_spec.name] = _mqtt
-    _mqtt_spec.loader.exec_module(_mqtt)
-    publish_service = _mqtt.publish_service
-    mqtt_endpoint = _mqtt.mqtt_endpoint
     _visits_spec = importlib.util.spec_from_file_location("ubpet_visits", Path(__file__).with_name("visits.py"))
     if _visits_spec is None or _visits_spec.loader is None:
         raise
@@ -38,16 +28,6 @@ except ImportError:
 
 USER_AGENT = "CatLitterBoxOverseasEu/2.1.12 (com.ubtrobot.airpet.overseaseu; build:699; iOS 26.5.0) Alamofire/5.5.0"
 NONCE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-QUICK_MQTT_REPLY_SERVICES = {
-    "start_clean_up",
-    "pause_clean_up",
-    "resume_clean_up",
-    "start_flatten",
-    "pause_flatten",
-    "resume_flatten",
-    "start_rise",
-    "start_drop",
-}
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -231,38 +211,6 @@ class UbpetClient:
     def get_im_friends(self) -> list[dict[str, Any]]:
         data = self._request("GET", "/v1/ubtechinc-im-manager/im/friends", auth=True)
         return _require_list(data)
-
-    def send_mqtt_service(self, serial_number: str, service_id: str) -> dict[str, Any]:
-        credentials = self.get_im_credentials()
-        contact = _find_im_contact(self.get_im_friends(), serial_number)
-        publish_credentials, publish_sources = _mqtt_publish_credentials(credentials)
-        target_uid = str(contact["userId"])
-        from_uid = _find_account_uid(credentials, self.auth)
-        parts = publish_service(
-            base_url=self.base_url,
-            credentials=publish_credentials,
-            target_uid=target_uid,
-            from_uid=from_uid,
-            service_id=service_id,
-            seq=None,
-            listen_seconds=_mqtt_listen_seconds(service_id),
-        )
-        result = parts.as_dict()
-        result["from_uid"] = from_uid
-        result["target_uid"] = target_uid
-        result["im_login_keys"] = sorted(str(key) for key in credentials)
-        mqtt_host, mqtt_port, mqtt_host_source = mqtt_endpoint(self.base_url, credentials)
-        result["mqtt_host"] = mqtt_host
-        result["mqtt_port"] = mqtt_port
-        result["mqtt_host_source"] = mqtt_host_source
-        result["publish_topic"] = publish_credentials.get("pubTopic")
-        result["publish_topic_source"] = publish_sources["topic"]
-        result["publish_username_source"] = publish_sources["username"]
-        result["publish_password_source"] = publish_sources["password"]
-        result["publish_url_source"] = publish_sources["url"]
-        result["matched_contact"] = _safe_contact_summary(contact)
-        result.update(_summarize_mqtt_result(result, target_uid=target_uid))
-        return result
 
     def get_cats(self) -> list[dict[str, Any]]:
         data = self._request("GET", "/catbox-server/web/cat/info", auth=True)
@@ -491,45 +439,7 @@ def _quote(value: str) -> str:
     return urllib.parse.quote(value, safe="")
 
 
-def _find_im_contact(friends: list[dict[str, Any]], serial_number: str) -> dict[str, Any]:
-    for friend in friends:
-        if friend.get("userName") == serial_number and friend.get("userId"):
-            return friend
-    raise UbpetApiError(200, {"code": "missing_im_contact", "message": f"No IM contact found for {serial_number}"})
-
-
-def _safe_contact_summary(contact: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "userName": contact.get("userName"),
-        "userId": contact.get("userId"),
-        "onlineStatus": contact.get("onlineStatus"),
-        "alias": contact.get("alias"),
-        "nickName": contact.get("nickName"),
-    }
-
-
-def _mqtt_publish_credentials(
-    credentials: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, str]]:
-    publish_credentials = dict(credentials)
-    sources = {
-        "topic": "im_login.pubTopic",
-        "username": "im_login.mqttUserName",
-        "password": "im_login.mqttPassword",
-        "url": "base_url",
-    }
-    return publish_credentials, sources
-
-
-def _mqtt_listen_seconds(service_id: str) -> int:
-    if service_id == "request_state":
-        return 5
-    if service_id in QUICK_MQTT_REPLY_SERVICES:
-        return 2
-    return 10
-
-
-def _find_account_uid(credentials: dict[str, Any], auth: UbpetAuth | None) -> str:
+def find_account_uid(credentials: dict[str, Any], auth: UbpetAuth | None) -> str:
     for key in ("uid", "userId", "imUserId", "accountUid"):
         value = credentials.get(key)
         if value not in (None, ""):
@@ -544,35 +454,6 @@ def _find_account_uid(credentials: dict[str, Any], auth: UbpetAuth | None) -> st
             "im_login_keys": sorted(str(key) for key in credentials),
         },
     )
-
-
-def _summarize_mqtt_result(result: dict[str, Any], *, target_uid: str) -> dict[str, Any]:
-    delivery_status = "not_observed"
-    target_reply_status = "not_observed"
-    receipt_cause = None
-    messages = result.get("received_messages")
-    if not isinstance(messages, list):
-        messages = []
-    for message in messages:
-        if not isinstance(message, dict):
-            continue
-        decoded = message.get("decoded")
-        if not isinstance(decoded, dict):
-            continue
-        receipt_status = decoded.get("receipt_status")
-        if receipt_status == "receipt/success":
-            delivery_status = "delivered"
-            receipt_cause = decoded.get("receipt_cause")
-        elif receipt_status == "receipt/unreachable":
-            delivery_status = "unreachable"
-            receipt_cause = decoded.get("receipt_cause")
-        if decoded.get("from_uid") == target_uid:
-            target_reply_status = "observed"
-    return {
-        "delivery_status": delivery_status,
-        "target_reply_status": target_reply_status,
-        "receipt_cause": receipt_cause,
-    }
 
 
 def _safe_dict_call(func, *args) -> dict[str, Any]:

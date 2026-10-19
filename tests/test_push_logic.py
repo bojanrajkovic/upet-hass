@@ -30,14 +30,16 @@ class ReconnectDelayTests(unittest.TestCase):
         self.assertEqual(push_logic.reconnect_delay(1800, session_s=5, own_login=True), 5)
 
 
-class CatLeftTests(unittest.TestCase):
-    def test_cat_leaving_is_detected(self):
-        self.assertTrue(push_logic.cat_left({"toilet_state": 1}, {"w_state": 1}))
+class PresenceChangeTests(unittest.TestCase):
+    def test_cat_entering_and_leaving(self):
+        self.assertIs(push_logic.presence_change({"w_state": 1}, {"toilet_state": 1}), True)
+        self.assertIs(push_logic.presence_change({"toilet_state": 1}, {"w_state": 1}), False)
 
-    def test_other_transitions_are_not(self):
-        self.assertFalse(push_logic.cat_left(None, {"w_state": 1}))
-        self.assertFalse(push_logic.cat_left({"w_state": 1}, {"toilet_state": 1}))
-        self.assertFalse(push_logic.cat_left({"toilet_state": 1}, {"toilet_state": 1}))
+    def test_no_change_or_unknown_previous_is_none(self):
+        self.assertIsNone(push_logic.presence_change(None, {"toilet_state": 1}))
+        self.assertIsNone(push_logic.presence_change(None, {"w_state": 1}))
+        self.assertIsNone(push_logic.presence_change({"toilet_state": 1}, {"toilet_state": 1}))
+        self.assertIsNone(push_logic.presence_change({"w_state": 1}, {"w_state": 2}))
 
 
 if __name__ == "__main__":

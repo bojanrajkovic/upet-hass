@@ -105,6 +105,9 @@
     "number": {
       "auto_clean_delay": {
         "name": "Auto clean delay"
+      },
+      "cat_profile_weight": {
+        "name": "Profile weight"
       }
     },
     "switch": {

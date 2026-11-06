@@ -308,6 +308,50 @@ class ApiUnitTests(unittest.TestCase):
             },
         )
 
+    def test_set_cat_weight_posts_the_profile_with_new_weight(self):
+        recorder = UrlopenRecorder(
+            [
+                (
+                    200,
+                    {
+                        "token": {"token": "auth-token", "refreshToken": None, "expireAt": 9999999999999},
+                        "user": {"userId": 100},
+                    },
+                ),
+                (200, {"code": 0, "message": "success", "data": None, "success": True}),
+            ]
+        )
+        cat = {
+            "catInfoId": 529029,
+            "nickname": "Oliver",
+            "birthday": "2013-09-14",
+            "breed": "90",
+            "gender": 4,
+            "icon": None,
+            "weight": 7.0,
+            "baseWeight": 7.0,
+            "number": 3,
+        }
+
+        with patch.object(api.urllib.request, "urlopen", recorder):
+            self.make_client().set_cat_weight(cat, 7.1153)
+
+        self.assertEqual(recorder.requests[1].selector, "/catbox-server/web/cat/info")
+        self.assertEqual(recorder.requests[1].get_method(), "POST")
+        self.assertEqual(
+            recorder.payloads()[1],
+            {
+                "catInfoId": 529029,
+                "nickname": "Oliver",
+                "birthday": "2013-09-14",
+                "breed": "90",
+                "gender": 4,
+                "icon": None,
+                "weight": 7.12,
+                "baseWeight": 7.12,
+            },
+        )
+
     def test_set_auto_clean_enabled_sends_switch_payload_with_existing_delay(self):
         recorder = UrlopenRecorder(
             [

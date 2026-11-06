@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.number import NumberEntity, NumberEntityDescription, NumberMode
+from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberEntityDescription, NumberMode
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTime
+from homeassistant.const import UnitOfMass, UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -27,12 +28,68 @@ AUTO_CLEAN_DELAY = NumberEntityDescription(
     mode=NumberMode.SLIDER,
 )
 
+CAT_PROFILE_WEIGHT = NumberEntityDescription(
+    key="cat_profile_weight",
+    name="Profile weight",
+    icon="mdi:scale",
+    translation_key="cat_profile_weight",
+    device_class=NumberDeviceClass.WEIGHT,
+    native_unit_of_measurement=UnitOfMass.KILOGRAMS,
+    native_min_value=0.5,
+    native_max_value=20,
+    native_step=0.01,
+    entity_category=EntityCategory.CONFIG,
+    mode=NumberMode.BOX,
+)
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: UbpetDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[NumberEntity] = []
     for serial in coordinator.data.get("devices", {}):
         entities.append(UbpetAutoCleanDelayNumber(coordinator, entry.entry_id, serial))
+    for cat in coordinator.data.get("cats", []):
+        if cat.get("catInfoId") is not None:
+            entities.append(UbpetCatProfileWeightNumber(coordinator, entry.entry_id, str(cat["catInfoId"])))
     async_add_entities(entities)
+
+
+class UbpetCatProfileWeightNumber(CoordinatorEntity[UbpetDataUpdateCoordinator], NumberEntity):
+    """The weight the box matches visits against. Editing it saves the cat's profile."""
+
+    entity_description = CAT_PROFILE_WEIGHT
+
+    def __init__(self, coordinator: UbpetDataUpdateCoordinator, entry_id: str, cat_id: str) -> None:
+        super().__init__(coordinator)
+        self._cat_id = cat_id
+        self._attr_unique_id = f"{entry_id}_cat_{cat_id}_{CAT_PROFILE_WEIGHT.key}"
+
+    @property
+    def _cat(self) -> dict[str, Any] | None:
+        for cat in self.coordinator.data.get("cats", []):
+            if str(cat.get("catInfoId")) == self._cat_id:
+                return cat
+        return None
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        cat = self._cat or {}
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"cat_{self._cat_id}")},
+            manufacturer="Airrobo / UBT",
+            name=cat.get("nickname") or f"Cat {self._cat_id}",
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        cat = self._cat
+        return cat.get("weight") if cat else None
+
+    async def async_set_native_value(self, value: float) -> None:
+        cat = self._cat
+        if cat is None:
+            raise HomeAssistantError(f"Cat {self._cat_id} is no longer in the account")
+        await self.hass.async_add_executor_job(self.coordinator.client.set_cat_weight, cat, value)
+        await self.coordinator.async_request_refresh()
 
 
 class UbpetAutoCleanDelayNumber(CoordinatorEntity[UbpetDataUpdateCoordinator], NumberEntity):

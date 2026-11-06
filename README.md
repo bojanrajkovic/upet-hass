@@ -152,6 +152,12 @@ Cat sensors:
 - Visits.
 - Usage duration.
 
+Cat controls:
+
+- Profile weight number (kg). The box matches a visit to a cat by weight, so keep it current, for
+  example after a vet visit. Only the account that owns the box can save it; other accounts get a
+  permission error from the vendor.
+
 Cat picture URLs are exposed as cat entity attributes when returned by the vendor API.
 
 ## MQTT Behavior
@@ -243,6 +249,7 @@ Implemented REST endpoints:
 - `POST /v1/ubtechinc-im-manager/im/login`
 - `GET /v1/ubtechinc-im-manager/im/friends`
 - `GET /catbox-server/web/cat/info`
+- `POST /catbox-server/web/cat/info` (saves the whole cat profile; `PUT` creates a duplicate cat)
 - `POST /catbox-server/web/box/record/new`
 - `PUT /catbox-server/box/config/switch/update`
 - `PUT /catbox-server/box/config/timePeriod/update`

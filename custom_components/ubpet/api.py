@@ -29,7 +29,8 @@ except ImportError:
     mqtt_endpoint = _mqtt.mqtt_endpoint
 
 USER_AGENT = "CatLitterBoxOverseasEu/2.1.12 (com.ubtrobot.airpet.overseaseu; build:699; iOS 26.5.0) Alamofire/5.5.0"
-NONCE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+CAT_PROFILE_FIELDS = ("catInfoId", "nickname", "birthday", "breed", "gender", "icon")
+NONCE_ALPHABET ="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 QUICK_MQTT_REPLY_SERVICES = {
     "start_clean_up",
     "pause_clean_up",
@@ -259,6 +260,16 @@ class UbpetClient:
     def get_cats(self) -> list[dict[str, Any]]:
         data = self._request("GET", "/catbox-server/web/cat/info", auth=True)
         return _require_list(data)
+
+    def set_cat_weight(self, cat: dict[str, Any], kilograms: float) -> None:
+        """Save a new profile weight for a cat. Only the box owner may edit profiles.
+
+        The endpoint saves the whole profile, so the other fields are sent back unchanged.
+        The server stores `baseWeight` to one decimal and `weight` to two.
+        """
+        payload = {key: cat.get(key) for key in CAT_PROFILE_FIELDS}
+        payload["weight"] = payload["baseWeight"] = round(kilograms, 2)
+        self._request("POST", "/catbox-server/web/cat/info", payload=payload, auth=True)
 
     def get_box_records(self, serial_number: str, message_type: int, size: int = 1) -> list[dict[str, Any]]:
         payload = {

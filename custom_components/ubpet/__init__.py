@@ -5,6 +5,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntry
 
 from .api import UbpetClient
 from .const import (
@@ -24,6 +25,7 @@ from .const import (
 )
 from .coordinator import UbpetDataUpdateCoordinator
 from .push import UbpetPush
+from .registry import still_reported
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -79,3 +81,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if coordinator is not None:
             await coordinator.push.async_stop()
     return unload_ok
+
+
+async def async_remove_config_entry_device(hass: HomeAssistant, entry: ConfigEntry, device: DeviceEntry) -> bool:
+    """Let users delete a box or cat the account no longer reports, such as one from before a re-pair."""
+    coordinator: UbpetDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    return not still_reported(device.identifiers, coordinator.data or {})

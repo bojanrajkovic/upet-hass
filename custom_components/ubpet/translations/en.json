@@ -55,10 +55,10 @@
         "name": "Weight"
       },
       "cat_visits": {
-        "name": "Visits"
+        "name": "Visits today"
       },
       "cat_cost_time": {
-        "name": "Usage duration"
+        "name": "Time in box today"
       },
       "firmware_version": {
         "name": "Firmware version"

@@ -18,21 +18,46 @@ class VisitBatch:
     last_record_id: int | None
 
 
-def new_visits(records: list[dict[str, Any]], last_record_id: int | None) -> VisitBatch:
-    """Pick the cat records newer than the stored cursor.
+def new_visits(records: list[dict[str, Any]] | None, last_record_id: int | None) -> VisitBatch:
+    """Pick the records newer than the stored cursor.
 
-    `records` is the API's newest-first list. Record ids only grow, so they work
-    as a cursor. With no stored cursor (first setup) nothing is reported, so
-    adding the integration doesn't replay old visits as new ones.
+    `records` is the API's newest-first list, or None when the fetch failed. Record
+    ids only grow, so they work as a cursor. With no stored cursor (first setup),
+    existing records are history and nothing is reported, so adding the integration
+    doesn't replay old visits. An empty first fetch (a freshly paired box) starts the
+    cursor at 0, so the box's first record is reported.
     """
+    if records is None:
+        return VisitBatch(visits=[], last_record_id=last_record_id)
     ids = [record["recordId"] for record in records if isinstance(record.get("recordId"), int)]
     if not ids:
-        return VisitBatch(visits=[], last_record_id=last_record_id)
+        return VisitBatch(visits=[], last_record_id=0 if last_record_id is None else last_record_id)
     newest = max(ids)
     if last_record_id is None:
         return VisitBatch(visits=[], last_record_id=newest)
     fresh = [record for record in records if isinstance(record.get("recordId"), int) and record["recordId"] > last_record_id]
     return VisitBatch(visits=sorted(fresh, key=lambda record: record["recordId"]), last_record_id=max(newest, last_record_id))
+
+
+@dataclass(frozen=True, slots=True)
+class DayTotals:
+    """A cat's visits and time in the box so far today, in the account's local day."""
+
+    visits: int
+    seconds: float
+
+
+def today_totals(entries: list[dict[str, Any]] | None) -> DayTotals | None:
+    """Sum the per-visit entries of the day statistic (periodType 1); None if the fetch failed.
+
+    The app reads these, not the cat profile's `number` and `costTime`, which go stale.
+    """
+    if entries is None:
+        return None
+    return DayTotals(
+        visits=sum(int(entry.get("number") or 0) for entry in entries),
+        seconds=float(sum(float(entry.get("costTime") or 0) for entry in entries)),
+    )
 
 
 def visit_event_data(serial: str, box_name: str | None, record: dict[str, Any]) -> dict[str, Any]:

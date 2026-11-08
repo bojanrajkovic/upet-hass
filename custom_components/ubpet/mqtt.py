@@ -459,6 +459,8 @@ def classify_push(decoded: dict[str, Any], uid_to_serial: dict[str, str]) -> Pus
     `uid_to_serial` maps each box's IM user id to its serial number. Messages
     from anything else, such as command receipts, are ignored.
     """
+    if decoded.get("content_type") == "receipt":
+        return Ignored("receipt")
     type_url = decoded.get("type_url")
     if type_url == ANY_FORCE_OFFLINE_TYPE_URL:
         return Kicked()

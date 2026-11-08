@@ -106,6 +106,30 @@
       },
       "control_board_switch": {
         "name": "Блокування від дітей"
+      },
+      "cat_nearby": {
+        "name": "Кіт поруч"
+      },
+      "scale_fault": {
+        "name": "Несправність ваг"
+      },
+      "light": {
+        "name": "Підсвічування"
+      },
+      "back_cover_open": {
+        "name": "Задня кришка відкрита"
+      },
+      "firmware_updating": {
+        "name": "Оновлення прошивки"
+      },
+      "camera_fault": {
+        "name": "Несправність камери"
+      },
+      "drum_stuck": {
+        "name": "Барабан застряг"
+      },
+      "drum_not_in_place": {
+        "name": "Барабан не на місці"
       }
     },
     "number": {

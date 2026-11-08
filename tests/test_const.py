@@ -50,3 +50,15 @@ class ConstUnitTests(unittest.TestCase):
 
         self.assertEqual(const.base_url_for_country("UA"), const.EU_BASE_URL)
         self.assertEqual(const.base_url_for_country("DE"), const.EU_BASE_URL)
+
+    def test_us_and_canada_use_us_api_endpoint(self):
+        const = _load_const_module()
+
+        self.assertEqual(const.base_url_for_country("US"), const.US_BASE_URL)
+        self.assertEqual(const.base_url_for_country("CA"), const.US_BASE_URL)
+
+    def test_us_accounts_use_air_pet_app_credentials(self):
+        const = _load_const_module()
+
+        self.assertEqual(const.app_credentials_for_country("US"), (const.US_APP_ID, const.US_APP_KEY))
+        self.assertEqual(const.app_credentials_for_country("DE"), (const.DEFAULT_APP_ID, const.DEFAULT_APP_KEY))

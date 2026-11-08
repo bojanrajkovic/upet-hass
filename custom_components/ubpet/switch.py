@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import UbpetDataUpdateCoordinator
+from .registry import waste_bin_reminder_config
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -161,7 +162,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         entities.append(UbpetAutoCleanSwitch(coordinator, entry.entry_id, serial))
         entities.append(UbpetDeodorantAlertSwitch(coordinator, entry.entry_id, serial))
         config = item.get("config", {})
-        if _empty_waste_bin_reminder_config(config):
+        if waste_bin_reminder_config(config):
             entities.append(UbpetEmptyWasteBinReminderSwitch(coordinator, entry.entry_id, serial))
         for description in PERIOD_SWITCHES:
             if _first_period_config(config, description.config_list_key):
@@ -296,7 +297,7 @@ class UbpetEmptyWasteBinReminderSwitch(UbpetBaseSwitch):
         item = self._device_item
         if not item:
             return None
-        return _empty_waste_bin_reminder_config(item.get("config", {}))
+        return waste_bin_reminder_config(item.get("config", {}))
 
 
 class UbpetFunctionSwitch(UbpetBaseSwitch):
@@ -403,13 +404,6 @@ def _first_period_config(config: dict[str, Any], key: str | None) -> dict[str, A
     if not isinstance(periods, list) or not periods:
         return None
     return periods[0] if isinstance(periods[0], dict) else None
-
-
-def _empty_waste_bin_reminder_config(config: dict[str, Any]) -> dict[str, Any] | None:
-    for item in config.get("notifyConfigList", []):
-        if isinstance(item, dict) and item.get("type") == 4 and item.get("notifyConfigId") is not None:
-            return item
-    return None
 
 
 def _period_config_id(config: dict[str, Any], list_key: str | None) -> int | None:

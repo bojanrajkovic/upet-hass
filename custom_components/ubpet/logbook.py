@@ -20,7 +20,7 @@ def async_describe_events(
             "name": data.get("cat") or "Unidentified cat",
             "message": f"used {data.get('box') or 'the litter box'} ({data.get('weight_kg')} kg, {data.get('duration_s')} s)",
         }
-        # Links the entry to the cat's Visits sensor when the box identified the cat.
+        # Links the entry to the box's Cat inside sensor.
         if data.get("entity_id"):
             entry["entity_id"] = data["entity_id"]
         return entry

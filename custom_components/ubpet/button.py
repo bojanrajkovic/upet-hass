@@ -19,6 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 REST_REQUEST_SERVICE = "__rest_request"
 RESET_WASTE_BIN_SERVICE = "__reset_waste_bin"
+RESET_DEODORANT_SERVICE = "__reset_deodorant"
 DIAGNOSTIC_SERVICES = {"request_state", REST_REQUEST_SERVICE}
 
 
@@ -51,6 +52,14 @@ MQTT_BUTTONS: tuple[UbpetMqttButtonDescription, ...] = (
         translation_key="reset_waste_bin",
         entity_category=EntityCategory.CONFIG,
         service_id=RESET_WASTE_BIN_SERVICE,
+    ),
+    UbpetMqttButtonDescription(
+        key="reset_deodorant",
+        name="Reset deodorant",
+        icon="mdi:air-filter",
+        translation_key="reset_deodorant",
+        entity_category=EntityCategory.CONFIG,
+        service_id=RESET_DEODORANT_SERVICE,
     ),
     UbpetMqttButtonDescription(
         key="mqtt_start_clean_up",
@@ -152,7 +161,7 @@ class UbpetMqttCommandButton(CoordinatorEntity[UbpetDataUpdateCoordinator], Butt
         if not super().available:
             return False
         service_id = self.entity_description.service_id
-        if service_id in (REST_REQUEST_SERVICE, RESET_WASTE_BIN_SERVICE):
+        if service_id in (REST_REQUEST_SERVICE, RESET_WASTE_BIN_SERVICE, RESET_DEODORANT_SERVICE):
             return True
         if not self.coordinator.push.connected:
             return False
@@ -179,6 +188,11 @@ class UbpetMqttCommandButton(CoordinatorEntity[UbpetDataUpdateCoordinator], Butt
 
     async def async_press(self) -> None:
         if self.entity_description.service_id == REST_REQUEST_SERVICE:
+            await self.coordinator.async_request_refresh()
+            return
+        if self.entity_description.service_id == RESET_DEODORANT_SERVICE:
+            await self.hass.async_add_executor_job(self.coordinator.client.reset_deodorant, self._serial)
+            _LOGGER.info("Reset UPET deodorant countdown for serial=%s", self._serial)
             await self.coordinator.async_request_refresh()
             return
         if self.entity_description.service_id == RESET_WASTE_BIN_SERVICE:

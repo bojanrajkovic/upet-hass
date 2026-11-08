@@ -30,6 +30,7 @@ from .const import EVENT_PRESENCE, EVENT_UNKNOWN_MESSAGE
 from .mqtt import (
     DEFAULT_MQTT_KEEPALIVE,
     DEFAULT_MQTT_PORT,
+    ConfigChanged,
     Ignored,
     Kicked,
     NewRecord,
@@ -48,8 +49,8 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-# The vendor writes the visit record just before the push; give REST a moment to serve it.
-RECORD_FETCH_DELAY_S = 3
+# The vendor writes the record or new settings just before the push; give REST a moment to serve them.
+REFRESH_DELAY_S = 3
 
 
 class UbpetPush:
@@ -215,9 +216,9 @@ class UbpetPush:
                 if inside is not None:
                     self._fire_presence(serial, inside, state)
                 if inside is False:
-                    self._schedule_record_fetch()
-            case NewRecord():
-                self._schedule_record_fetch()
+                    self._schedule_refresh()
+            case NewRecord() | ConfigChanged():
+                self._schedule_refresh()
             case OnlineChange(serial=serial, online=online):
                 self._coordinator.set_online(serial, online)
             case Ignored(reason="receipt"):
@@ -266,7 +267,7 @@ class UbpetPush:
         )
 
     @callback
-    def _schedule_record_fetch(self) -> None:
+    def _schedule_refresh(self) -> None:
         if self._cancel_fetch is not None:
             return
 
@@ -275,4 +276,4 @@ class UbpetPush:
             self._cancel_fetch = None
             self._hass.async_create_task(self._coordinator.async_request_refresh())
 
-        self._cancel_fetch = async_call_later(self._hass, RECORD_FETCH_DELAY_S, _fetch)
+        self._cancel_fetch = async_call_later(self._hass, REFRESH_DELAY_S, _fetch)

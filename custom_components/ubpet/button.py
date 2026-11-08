@@ -152,7 +152,11 @@ class UbpetMqttCommandButton(CoordinatorEntity[UbpetDataUpdateCoordinator], Butt
         if not super().available:
             return False
         service_id = self.entity_description.service_id
-        if service_id in DIAGNOSTIC_SERVICES or service_id == RESET_WASTE_BIN_SERVICE:
+        if service_id in (REST_REQUEST_SERVICE, RESET_WASTE_BIN_SERVICE):
+            return True
+        if not self.coordinator.push.connected:
+            return False
+        if service_id in DIAGNOSTIC_SERVICES:
             return True
         item = self.coordinator.data.get("devices", {}).get(self._serial)
         mode = _mqtt_work_mode(item)
@@ -186,26 +190,7 @@ class UbpetMqttCommandButton(CoordinatorEntity[UbpetDataUpdateCoordinator], Butt
             optimistic_state = _optimistic_mqtt_state_for_service(self.entity_description.service_id)
             if optimistic_state:
                 self.coordinator.set_mqtt_work_state(self._serial, optimistic_state)
-        result = await self.hass.async_add_executor_job(
-            self.coordinator.client.send_mqtt_service,
-            self._serial,
-            self.entity_description.service_id,
-        )
-        _LOGGER.info(
-            "Sent UPET MQTT service=%s serial=%s seq=%s cid=%s received=%s",
-            self.entity_description.service_id,
-            self._serial,
-            result.get("seq") if isinstance(result, dict) else None,
-            result.get("cid") if isinstance(result, dict) else None,
-            result.get("received_count") if isinstance(result, dict) else None,
-        )
-        if isinstance(result, dict):
-            result.setdefault("service_id", self.entity_description.service_id)
-        self.coordinator.store_mqtt_result(self._serial, result)
-        if self.entity_description.service_id == "request_state":
-            self.coordinator.start_mqtt_state_poll(self._serial)
-        elif self.entity_description.service_id not in DIAGNOSTIC_SERVICES:
-            self.coordinator.start_mqtt_state_poll(self._serial, fast=True)
+        await self.coordinator.push.async_publish(self._serial, self.entity_description.service_id)
 
 
 def _mqtt_work_state(item: dict[str, Any] | None) -> str | None:

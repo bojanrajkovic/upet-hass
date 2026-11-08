@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 MIN_RECONNECT_S = 60
@@ -27,14 +28,22 @@ def reconnect_delay(previous_s: float, *, session_s: float, own_login: bool) -> 
     return min(previous_s * 2, MAX_RECONNECT_S)
 
 
-def presence_change(previous: dict[str, Any] | None, current: dict[str, Any]) -> bool | None:
-    """True when a cat stepped in, False when it stepped out, None otherwise.
+@dataclass(frozen=True, slots=True)
+class Presence:
+    """Whether a cat is in the box, as best the box's state pushes can tell."""
 
-    The box reports `toilet_state=1` while a cat is inside and drops the field
-    once it leaves, which is when the vendor writes the visit record. Without a
-    previous state (right after a connect) there's no change to report.
+    inside: bool
+    # The cover came off since the box was last idle. Removing it jostles the scale,
+    # which reports toilet_state=1 until things settle, so scale readings don't count.
+    cover_off: bool
+
+
+def next_presence(previous: Presence | None, state: dict[str, Any]) -> Presence:
+    """Fold one state push into presence.
+
+    The box reports toilet_state=1 while something weighs on the scale. That's a cat,
+    unless the cover is off, or was off and the box hasn't been idle since.
     """
-    if previous is None:
-        return None
-    was_inside, inside = previous.get("toilet_state") == 1, current.get("toilet_state") == 1
-    return inside if was_inside != inside else None
+    on_scale = state.get("toilet_state") == 1
+    cover_off = state.get("lid_state") == 1 or (previous is not None and previous.cover_off and on_scale)
+    return Presence(inside=on_scale and not cover_off, cover_off=cover_off)

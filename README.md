@@ -138,10 +138,11 @@ Device sensors:
 
 Device binary sensors:
 
-- Cat inside.
+- Cat inside. Taking the cover off jostles the scale, which the box reports as a cat, so
+  scale readings don't count from the moment the cover comes off until the box is idle again.
 - Cat nearby.
-- Problems: back cover open, drum not in place, drum stuck (with the likely cause, as
-  the app words it), scale fault, camera fault.
+- Problems: cover open (the side cover on the MW-SC02), drum not in place, drum stuck
+  (with the likely cause, as the app words it), scale fault, camera fault.
 - Light.
 - Firmware updating.
 - Online.

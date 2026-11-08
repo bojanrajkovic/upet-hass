@@ -30,16 +30,31 @@ class ReconnectDelayTests(unittest.TestCase):
         self.assertEqual(push_logic.reconnect_delay(1800, session_s=5, own_login=True), 5)
 
 
-class PresenceChangeTests(unittest.TestCase):
-    def test_cat_entering_and_leaving(self):
-        self.assertIs(push_logic.presence_change({"w_state": 1}, {"toilet_state": 1}), True)
-        self.assertIs(push_logic.presence_change({"toilet_state": 1}, {"w_state": 1}), False)
+def run(states, start=None):
+    presence, seen = start, []
+    for state in states:
+        presence = push_logic.next_presence(presence, state)
+        seen.append(presence.inside)
+    return seen
 
-    def test_no_change_or_unknown_previous_is_none(self):
-        self.assertIsNone(push_logic.presence_change(None, {"toilet_state": 1}))
-        self.assertIsNone(push_logic.presence_change(None, {"w_state": 1}))
-        self.assertIsNone(push_logic.presence_change({"toilet_state": 1}, {"toilet_state": 1}))
-        self.assertIsNone(push_logic.presence_change({"w_state": 1}, {"w_state": 2}))
+
+class NextPresenceTests(unittest.TestCase):
+    def test_a_cat_stepping_in_and_out(self):
+        self.assertEqual(run([{}, {"toilet_state": 1, "weigh_state": 1}, {}]), [False, True, False])
+
+    def test_cover_off_and_back_on_is_never_a_cat(self):
+        # Captured from a Left box: the cover jostles the scale, which keeps reporting
+        # toilet_state=1 for a moment after the cover goes back on.
+        states = [{}, {"lid_state": 1}, {"lid_state": 1, "toilet_state": 1, "weigh_state": 1}, {"toilet_state": 1, "weigh_state": 1}, {}]
+        self.assertEqual(run(states), [False, False, False, False, False])
+
+    def test_a_cat_after_maintenance_counts_again(self):
+        states = [{"lid_state": 1}, {}, {"toilet_state": 1}]
+        self.assertEqual(run(states), [False, False, True])
+
+    def test_first_state_has_no_previous(self):
+        self.assertTrue(push_logic.next_presence(None, {"toilet_state": 1}).inside)
+        self.assertFalse(push_logic.next_presence(None, {"lid_state": 1, "toilet_state": 1}).inside)
 
 
 if __name__ == "__main__":

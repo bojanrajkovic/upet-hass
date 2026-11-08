@@ -60,6 +60,14 @@ class MqttCodecUnitTests(unittest.TestCase):
         self.assertEqual(decoded["w_cause"], 90)
         self.assertEqual(decoded["timestamp"], 1781260086)
 
+    def test_idle_box_reporting_running_reads_as_pending(self):
+        # Captured from a box at rest (MW-SC02, US); EU C10 owners report the same in upstream issue #3.
+        decoded = mqtt.summarize_all_state_body(bytes.fromhex("1001185a9001f68ed6d606"))
+
+        self.assertEqual(decoded["w_mode_app_name"], "IDLE")
+        self.assertEqual(decoded["w_state_name"], "running")
+        self.assertEqual(decoded["w_state_app_name"], "PENDING")
+
     def test_state_push_decodes_like_all_state_response(self):
         # Captured from a real box as a cat stepped in: block, with a cat on the scale.
         frame = mqtt.build_risp_frame(

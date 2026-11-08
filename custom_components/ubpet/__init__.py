@@ -57,9 +57,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         area_code=entry.data.get(CONF_AREA_CODE, entry.data.get(CONF_COUNTRY, "")),
     )
     coordinator = UbpetDataUpdateCoordinator(hass, client, entry_id=entry.entry_id)
+    coordinator.push = UbpetPush(hass, coordinator)
     await coordinator.async_config_entry_first_refresh()
 
-    coordinator.push = UbpetPush(hass, coordinator)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

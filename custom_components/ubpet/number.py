@@ -37,7 +37,7 @@ CAT_PROFILE_WEIGHT = NumberEntityDescription(
     native_unit_of_measurement=UnitOfMass.KILOGRAMS,
     native_min_value=0.5,
     native_max_value=20,
-    native_step=0.01,
+    native_step=0.1,
     entity_category=EntityCategory.CONFIG,
     mode=NumberMode.BOX,
 )
@@ -83,7 +83,8 @@ class UbpetCatProfileWeightNumber(CoordinatorEntity[UbpetDataUpdateCoordinator],
     @property
     def native_value(self) -> float | None:
         cat = self._cat
-        return cat.get("weight") if cat else None
+        # `weight` is overwritten with each matched visit's reading; `baseWeight` keeps the saved value.
+        return cat.get("baseWeight") if cat else None
 
     async def async_set_native_value(self, value: float) -> None:
         cat = self._cat

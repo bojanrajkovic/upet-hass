@@ -194,6 +194,11 @@ Cat controls:
   example after a vet visit. Only the account that owns the box can save it; other accounts get a
   permission error from the vendor.
 
+The profile has two weight fields. `baseWeight` is the saved profile weight, stored to one decimal,
+and the Profile weight number reads it. `weight` is replaced with the reading from each visit the
+vendor matches to the cat, and the Weight sensor reads it. Saving a profile weight sets both, as
+the app does.
+
 Cat picture URLs are exposed as cat entity attributes when returned by the vendor API.
 
 Entities only appear for hardware the box has: camera entities need the
